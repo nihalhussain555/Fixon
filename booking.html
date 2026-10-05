@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book a Repair | FIXON Mobile Repair</title>
+  <meta name="description" content="Book a FIXON repair: tell us your device, model, problem and preferred date. We diagnose first and quote before any work starts.">
+  <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="FIXON">
+  <meta property="og:title" content="Book a Repair | FIXON">
+  <meta property="og:description" content="Book your iPhone or Android repair with FIXON in a minute.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <script src="js/theme.js"></script>
+  <script type="application/ld+json" data-structured-data></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="header">
+  <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
+  <nav class="nav" id="primaryNav" aria-label="Primary">
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
+    <a href="repairs.html">Repairs</a>
+    <a href="accessories.html">Accessories</a>
+    <a href="about.html">About</a>
+    <a href="contact.html">Contact</a>
+    <div class="nav-cta-group">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+      <a class="btn btn-sm btn-primary full" href="booking.html">Book a Repair</a>
+    </div>
+  </nav>
+  <div class="header-actions">
+    <div class="header-cta">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+      <a class="btn btn-sm btn-primary" href="booking.html">Book Repair</a>
+    </div>
+    <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☼</button>
+    <a class="cart-btn" href="cart.html" aria-label="Your enquiry list">🛒 <span id="cartCount">0</span></a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu" title="Menu"><i></i><i></i><i></i></button>
+  </div>
+</header>
+<div class="nav-scrim"></div>
+
+<main id="main">
+  <section class="page-hero compact">
+    <span class="eyebrow">REPAIR BOOKING</span>
+    <h1>Let's get your<br><em>phone back.</em></h1>
+    <p>Tell FIXON the device, the fault and when you can come in. Diagnostics and a quote come before any repair work.</p>
+  </section>
+
+  <section class="booking-wrap">
+    <form id="bookingForm" class="form-card" novalidate>
+      <div class="form-row">
+        <label>Your name
+          <input name="name" type="text" autocomplete="name" placeholder="Enter your name" required>
+        </label>
+        <label>Phone number
+          <input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="Include your country code" required>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>Device brand
+          <select id="brandSelect" name="brand" required></select>
+        </label>
+        <label>Device model
+          <input name="model" type="text" placeholder="e.g. iPhone 15 Pro / Galaxy S24" required>
+        </label>
+      </div>
+
+      <label>Problem / service needed
+        <select id="serviceSelect" name="service" required></select>
+      </label>
+
+      <div class="form-row">
+        <label>Preferred date
+          <input name="date" type="date" required>
+        </label>
+        <label>Preferred time
+          <select id="timeSelect" name="time" required></select>
+        </label>
+      </div>
+
+      <label>Message
+        <textarea name="issue" rows="4" placeholder="What is the phone doing? When did it start? Any drops, water or repairs before this?"></textarea>
+      </label>
+
+      <div class="form-actions">
+        <button class="btn btn-primary full" type="submit">Request Repair</button>
+        <button class="btn btn-whatsapp full" type="button" id="bookingWhatsBtn">WhatsApp Instead</button>
+      </div>
+
+      <div class="form-status" id="formStatus" aria-live="polite"></div>
+
+      <div id="formNext" hidden>
+        <label>Your request, ready to send
+          <textarea id="bookingPreview" rows="7" readonly></textarea>
+        </label>
+        <div class="hero-actions" style="margin:0">
+          <a class="btn btn-whatsapp" id="formSendWa" href="#" hidden>Send on WhatsApp</a>
+          <button class="btn btn-secondary btn-sm" type="button" id="bookingCopyBtn">Copy request text</button>
+        </div>
+        <p class="form-note" style="text-align:left">Review the text above. Nothing reaches FIXON until you send it.</p>
+      </div>
+
+      <p class="form-note">This site has no backend yet, so a submission is prepared and saved on your device only &mdash; it is not sent to FIXON until you press send on WhatsApp (or contact us another way). Connect a form endpoint or booking API to make this a real booking.</p>
+    </form>
+
+    <aside class="booking-side">
+      <div class="mini-card">
+        <span>01</span><h3>Tell us the issue</h3><p>Device, model and symptoms &mdash; the more specific, the faster the diagnosis.</p>
+      </div>
+      <div class="mini-card">
+        <span>02</span><h3>Diagnose first</h3><p>We check the device before ordering or fitting anything.</p>
+      </div>
+      <div class="mini-card">
+        <span>03</span><h3>Quote, then fix</h3><p>You hear the cost and scope before work starts. No surprise charges after.</p>
+      </div>
+      <div class="mini-card contact-side-card">
+        <b>Prefer to talk?</b>
+        <a class="btn btn-sm btn-outline full" data-fixon-tel href="#">Call Now</a>
+        <a class="btn btn-sm btn-whatsapp full" data-fixon-wa="general" href="#">WhatsApp</a>
+        <a class="btn btn-sm btn-secondary full" href="repairs.html">Repair guide</a>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<footer class="footer">
+  <div>
+    <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
+    <p data-fixon-text="tagline">Mobile Repair, Services &amp; Accessories</p>
+    <div class="footer-cta">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+    </div>
+  </div>
+  <div>
+    <b>Explore</b>
+    <a href="services.html">Services</a>
+    <a href="repairs.html">Repairs</a>
+    <a href="accessories.html">Accessories</a>
+    <a href="shop.html">Shop Covers</a>
+    <a href="about.html">About</a>
+  </div>
+  <div>
+    <b>Support</b>
+    <a href="booking.html">Book Repair</a>
+    <a href="contact.html">Contact</a>
+    <a href="cart.html">My Enquiry List</a>
+    <a href="contact.html#faq">Questions</a>
+  </div>
+  <div>
+    <b>Contact</b>
+    <a data-fixon-tel href="#"><span data-fixon-text="phoneDisplay">Phone</span></a>
+    <a data-fixon-email href="#"><span data-fixon-text="email">Email</span></a>
+    <p data-fixon-address>Address</p>
+    <div class="hours" data-fixon-hours></div>
+    <a data-fixon-maps href="#" target="_blank" rel="noopener">Get directions ↗</a>
+  </div>
+  <div class="footer-bottom">
+    <span>© <span data-fixon-year>2026</span> FIXON. Mobile repair, services &amp; accessories.</span>
+    <span>Independent service provider &mdash; not affiliated with any device brand.</span>
+  </div>
+</footer>
+
+<div class="mobile-bar" aria-label="Quick actions">
+  <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+  <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+  <a class="btn btn-sm btn-primary" href="booking.html">Book</a>
+</div>
+<button class="back-top" type="button" aria-label="Back to top" aria-hidden="true">↑</button>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/products.js"></script>
+<script src="js/app.js"></script>
+<script src="js/booking.js"></script>
+</body>
+</html>

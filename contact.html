@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Contact | FIXON Mobile Repair &amp; Accessories</title>
+  <meta name="description" content="Contact FIXON: call, WhatsApp, email or visit the shop for mobile repair, diagnostics and accessories.">
+  <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="FIXON">
+  <meta property="og:title" content="Contact | FIXON">
+  <meta property="og:description" content="Talk to FIXON about a repair, an accessory or a device problem.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <script src="js/theme.js"></script>
+  <script type="application/ld+json" data-structured-data></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="header">
+  <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
+  <nav class="nav" id="primaryNav" aria-label="Primary">
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
+    <a href="repairs.html">Repairs</a>
+    <a href="accessories.html">Accessories</a>
+    <a href="about.html">About</a>
+    <a class="active" href="contact.html" aria-current="page">Contact</a>
+    <div class="nav-cta-group">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+      <a class="btn btn-sm btn-primary full" href="booking.html">Book a Repair</a>
+    </div>
+  </nav>
+  <div class="header-actions">
+    <div class="header-cta">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+      <a class="btn btn-sm btn-primary" href="booking.html">Book Repair</a>
+    </div>
+    <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☼</button>
+    <a class="cart-btn" href="cart.html" aria-label="Your enquiry list">🛒 <span id="cartCount">0</span></a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu" title="Menu"><i></i><i></i><i></i></button>
+  </div>
+</header>
+<div class="nav-scrim"></div>
+
+<main id="main">
+  <section class="page-hero compact">
+    <span class="eyebrow">GET IN TOUCH</span>
+    <h1>Talk to<br><em>FIXON.</em></h1>
+    <p>Repair question, accessory query, or a device behaving strangely. Fastest replies come on WhatsApp.</p>
+    <div class="hero-actions">
+      <a class="btn btn-whatsapp" data-fixon-wa="general" href="#">Chat on WhatsApp</a>
+      <a class="btn btn-secondary" data-fixon-tel href="#">Call Now</a>
+      <a class="btn btn-outline" data-fixon-maps href="#" target="_blank" rel="noopener">Get Directions</a>
+    </div>
+  </section>
+
+  <section class="contact-grid">
+    <div class="contact-info">
+      <a data-fixon-tel href="#">
+        <span class="ico" aria-hidden="true">☎</span>
+        <div><b>Call us</b><p><span data-fixon-text="phoneDisplay">Phone number</span></p></div>
+      </a>
+      <a data-fixon-wa="general" href="#">
+        <span class="ico" aria-hidden="true">◉</span>
+        <div><b>WhatsApp</b><p>Send the symptom and a photo of the device.</p></div>
+      </a>
+      <a data-fixon-email href="#">
+        <span class="ico" aria-hidden="true">✉</span>
+        <div><b>Email</b><p><span data-fixon-text="email">Email address</span></p></div>
+      </a>
+      <div>
+        <span class="ico" aria-hidden="true">⌖</span>
+        <div><b>Visit us</b><p data-fixon-address>Shop address</p></div>
+      </div>
+      <div>
+        <span class="ico" aria-hidden="true">◷</span>
+        <div><b>Opening hours</b><div class="hours" data-fixon-hours></div></div>
+      </div>
+      <div class="mini-card">
+        <b>FIXON</b>
+        <p data-fixon-text="tagline">Mobile Repair, Services &amp; Accessories</p>
+        <p class="note">Please keep personal details out of the message &mdash; we only need the device, the fault and a way to reach you.</p>
+      </div>
+    </div>
+
+    <form class="form-card" id="contactForm" novalidate>
+      <div class="form-row">
+        <label>Name
+          <input name="name" type="text" autocomplete="name" placeholder="Your name" required>
+        </label>
+        <label>Phone or email
+          <input name="contact" type="text" autocomplete="tel" placeholder="How should FIXON reply?" required>
+        </label>
+      </div>
+      <label>Topic
+        <select id="contactTopic" name="topic">
+          <option>Repair question</option>
+          <option>Accessory or cover</option>
+          <option>Quote or booking</option>
+          <option>Data transfer</option>
+          <option>Something else</option>
+        </select>
+      </label>
+      <label>Message
+        <textarea name="message" rows="6" placeholder="What do you need help with?" required></textarea>
+      </label>
+      <div class="form-actions">
+        <button class="btn btn-primary full" type="submit">Send Message</button>
+        <a class="btn btn-whatsapp full" id="contactWhatsBtn" href="#">Send on WhatsApp Instead</a>
+      </div>
+      <div class="form-status" id="contactStatus" aria-live="polite"></div>
+      <p class="form-note">This form has no backend yet: your message is prepared on this device and opened in WhatsApp, or you can copy it. It is not received by FIXON until you send it.</p>
+    </form>
+  </section>
+
+  <!-- MAP -->
+  <section class="map-wrap" aria-labelledby="mapTitle" data-map>
+    <div class="section-head">
+      <div><span class="eyebrow">FIND US</span><h2 id="mapTitle">Where to come.</h2></div>
+      <a class="text-link" data-fixon-maps href="#" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+    </div>
+    <div class="map-frame">
+      <iframe title="FIXON shop location on Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" data-src></iframe>
+    </div>
+    <div class="map-placeholder" data-map-fallback hidden>
+      <b>Map not configured yet</b>
+      <p class="note">Set <code>FIXON.mapsQuery</code> (or <code>FIXON.mapsUrl</code>) and <code>FIXON.addressLine</code> in <code>js/config.js</code> to show the shop location here.</p>
+      <a class="btn btn-sm btn-secondary" href="booking.html">Book without visiting</a>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq" aria-labelledby="contactFaq">
+    <div class="center-head">
+      <span class="eyebrow">QUESTIONS</span>
+      <h2 id="contactFaq">Common things people ask.</h2>
+    </div>
+    <div class="faq">
+      <div class="faq-item"><h3><button class="faq-q" type="button">What is the fastest way to reach FIXON?<span class="sign" aria-hidden="true">+</span></button></h3><div class="faq-a"><div><p>WhatsApp &mdash; send the model and the symptom, ideally with a photo. A call is next best when the shop is open.</p></div></div></div>
+      <div class="faq-item"><h3><button class="faq-q" type="button">Do I need an appointment?<span class="sign" aria-hidden="true">+</span></button></h3><div class="faq-a"><div><p>No appointment is needed to ask a question. Booking a repair slot first means the device is expected and diagnosed when you arrive.</p></div></div></div>
+      <div class="faq-item"><h3><button class="faq-q" type="button">How long does a repair take?<span class="sign" aria-hidden="true">+</span></button></h3><div class="faq-a"><div><p>It depends on the fault and whether a part is on the shelf. You get that answer with the quote, after diagnosis &mdash; not before.</p></div></div></div>
+      <div class="faq-item"><h3><button class="faq-q" type="button">Can I just get a diagnosis?<span class="sign" aria-hidden="true">+</span></button></h3><div class="faq-a"><div><p>Yes. Diagnostics is a service of its own: we identify the problem and tell you the options, and you decide what happens next.</p></div></div></div>
+      <div class="faq-item"><h3><button class="faq-q" type="button">Do you sell accessories as well as repair phones?<span class="sign" aria-hidden="true">+</span></button></h3><div class="faq-a"><div><p>Yes &mdash; covers, tempered glass, chargers, cables, power adapters, earphones, TWS, car chargers and phone stands. Ask about stock for your model.</p></div></div></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div>
+    <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
+    <p data-fixon-text="tagline">Mobile Repair, Services &amp; Accessories</p>
+    <div class="footer-cta">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+    </div>
+  </div>
+  <div>
+    <b>Explore</b>
+    <a href="services.html">Services</a>
+    <a href="repairs.html">Repairs</a>
+    <a href="accessories.html">Accessories</a>
+    <a href="shop.html">Shop Covers</a>
+    <a href="about.html">About</a>
+  </div>
+  <div>
+    <b>Support</b>
+    <a href="booking.html">Book Repair</a>
+    <a href="contact.html">Contact</a>
+    <a href="cart.html">My Enquiry List</a>
+    <a href="contact.html#faq">Questions</a>
+  </div>
+  <div>
+    <b>Contact</b>
+    <a data-fixon-tel href="#"><span data-fixon-text="phoneDisplay">Phone</span></a>
+    <a data-fixon-email href="#"><span data-fixon-text="email">Email</span></a>
+    <p data-fixon-address>Address</p>
+    <div class="hours" data-fixon-hours></div>
+    <a data-fixon-maps href="#" target="_blank" rel="noopener">Get directions ↗</a>
+  </div>
+  <div class="footer-bottom">
+    <span>© <span data-fixon-year>2026</span> FIXON. Mobile repair, services &amp; accessories.</span>
+    <span>Independent service provider &mdash; not affiliated with any device brand.</span>
+  </div>
+</footer>
+
+<div class="mobile-bar" aria-label="Quick actions">
+  <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+  <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+  <a class="btn btn-sm btn-primary" href="booking.html">Book</a>
+</div>
+<button class="back-top" type="button" aria-label="Back to top" aria-hidden="true">↑</button>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/products.js"></script>
+<script src="js/app.js"></script>
+<script src="js/contact.js"></script>
+</body>
+</html>

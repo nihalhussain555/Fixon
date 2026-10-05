@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop Phone Covers | FIXON Accessories</title>
+  <meta name="description" content="Browse phone covers at FIXON: clear, shockproof, silicone, MagSafe-compatible, printed, premium and minimal cases for iPhone, Samsung, OnePlus, Pixel and more.">
+  <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="FIXON">
+  <meta property="og:title" content="Shop Phone Covers | FIXON">
+  <meta property="og:description" content="Phone covers for Android and iPhone. Ask FIXON for current stock, models and pricing.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <script src="js/theme.js"></script>
+  <script type="application/ld+json" data-structured-data></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="header">
+  <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
+  <nav class="nav" id="primaryNav" aria-label="Primary">
+    <a href="index.html">Home</a>
+    <a href="services.html">Services</a>
+    <a href="repairs.html">Repairs</a>
+    <a class="active" href="accessories.html">Accessories</a>
+    <a href="about.html">About</a>
+    <a href="contact.html">Contact</a>
+    <div class="nav-cta-group">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+      <a class="btn btn-sm btn-primary full" href="booking.html">Book a Repair</a>
+    </div>
+  </nav>
+  <div class="header-actions">
+    <div class="header-cta">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+      <a class="btn btn-sm btn-primary" href="booking.html">Book Repair</a>
+    </div>
+    <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☼</button>
+    <a class="cart-btn" href="cart.html" aria-label="Your enquiry list">🛒 <span id="cartCount">0</span></a>
+    <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu" title="Menu"><i></i><i></i><i></i></button>
+  </div>
+</header>
+<div class="nav-scrim"></div>
+
+<main id="main">
+  <section class="page-hero compact">
+    <span class="eyebrow">FIXON SHOP</span>
+    <h1>Protection with<br><em>personality.</em></h1>
+    <p>Search the cover styles FIXON stocks, filter by brand, and send the shortlist on WhatsApp for a real answer on fit and price.</p>
+  </section>
+
+  <section class="shop-controls" aria-label="Shop filters">
+    <label class="search-box">
+      <span aria-hidden="true">⌕</span>
+      <span class="is-hidden">Search covers</span>
+      <input id="searchInput" type="search" placeholder="Search covers, brands or models..." autocomplete="off">
+    </label>
+    <div class="filters" id="filters" role="group" aria-label="Filter by brand or style">
+      <button class="filter active" type="button" data-filter="All" aria-pressed="true">All</button>
+      <button class="filter" type="button" data-filter="iPhone" aria-pressed="false">iPhone</button>
+      <button class="filter" type="button" data-filter="Samsung" aria-pressed="false">Samsung</button>
+      <button class="filter" type="button" data-filter="OnePlus" aria-pressed="false">OnePlus</button>
+      <button class="filter" type="button" data-filter="Pixel" aria-pressed="false">Pixel</button>
+      <button class="filter" type="button" data-filter="Xiaomi" aria-pressed="false">Xiaomi</button>
+      <button class="filter" type="button" data-filter="Clear" aria-pressed="false">Clear</button>
+      <button class="filter" type="button" data-filter="Shockproof" aria-pressed="false">Shockproof</button>
+      <button class="filter" type="button" data-filter="Silicone" aria-pressed="false">Silicone</button>
+      <button class="filter" type="button" data-filter="MagSafe" aria-pressed="false">MagSafe</button>
+    </div>
+  </section>
+
+  <section class="section">
+    <p class="note sample-note">The listings below are sample entries that show how products are displayed. They are not confirmed stock, and pricing is quoted by FIXON.</p>
+    <div class="shop-top">
+      <span id="resultCount" role="status">Loading items…</span>
+      <label class="sort-label">Sort
+        <select id="sortSelect">
+          <option value="featured">Featured</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </label>
+    </div>
+    <div class="product-grid" id="productGrid"></div>
+    <div class="hero-actions" style="margin-top:40px">
+      <a class="btn btn-primary" href="cart.html">Review my enquiry list</a>
+      <a class="btn btn-whatsapp" data-fixon-wa="accessory" data-fixon-token-category="phone covers" href="#">Ask about a cover</a>
+      <a class="btn btn-secondary" href="accessories.html">All accessories</a>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div>
+    <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
+    <p data-fixon-text="tagline">Mobile Repair, Services &amp; Accessories</p>
+    <div class="footer-cta">
+      <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+    </div>
+  </div>
+  <div>
+    <b>Explore</b>
+    <a href="services.html">Services</a>
+    <a href="repairs.html">Repairs</a>
+    <a href="accessories.html">Accessories</a>
+    <a href="shop.html">Shop Covers</a>
+    <a href="about.html">About</a>
+  </div>
+  <div>
+    <b>Support</b>
+    <a href="booking.html">Book Repair</a>
+    <a href="contact.html">Contact</a>
+    <a href="cart.html">My Enquiry List</a>
+    <a href="contact.html#faq">Questions</a>
+  </div>
+  <div>
+    <b>Contact</b>
+    <a data-fixon-tel href="#"><span data-fixon-text="phoneDisplay">Phone</span></a>
+    <a data-fixon-email href="#"><span data-fixon-text="email">Email</span></a>
+    <p data-fixon-address>Address</p>
+    <div class="hours" data-fixon-hours></div>
+    <a data-fixon-maps href="#" target="_blank" rel="noopener">Get directions ↗</a>
+  </div>
+  <div class="footer-bottom">
+    <span>© <span data-fixon-year>2026</span> FIXON. Mobile repair, services &amp; accessories.</span>
+    <span>Independent service provider &mdash; not affiliated with any device brand.</span>
+  </div>
+</footer>
+
+<div class="mobile-bar" aria-label="Quick actions">
+  <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call</a>
+  <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
+  <a class="btn btn-sm btn-primary" href="booking.html">Book</a>
+</div>
+<button class="back-top" type="button" aria-label="Back to top" aria-hidden="true">↑</button>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/config.js"></script>
+<script src="js/products.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

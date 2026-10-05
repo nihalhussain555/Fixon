@@ -1,0 +1,174 @@
+/* ==========================================================================
+   FIXON - responsive layer
+   Breakpoints: 1200 / 1024 / 860 / 720 / 560 / 420 / 380
+   Verified against 360, 375, 390, 414, 768, 1024, 1440 and 1920 widths.
+   ========================================================================== */
+
+/* Wide screens: keep line lengths readable */
+@media (min-width:1600px) {
+  :root { --gutter: 10%; }
+  body { font-size: 16.5px; }
+  .hero { min-height: 700px; }
+}
+
+@media (max-width:1200px) {
+  .quick-grid { grid-template-columns: repeat(4, 1fr); }
+  .why-grid { grid-template-columns: repeat(2, 1fr); }
+  .service-grid { grid-template-columns: repeat(3, 1fr); }
+  .timeline { grid-template-columns: repeat(3, 1fr); }
+  .timeline::before { display: none; }
+  .timeline-step { padding-top: 44px; }
+}
+
+@media (max-width:1024px) {
+  :root { --header-h: 72px; --gutter: 6%; }
+  .nav { gap: 18px; }
+  .header { padding: 0 4%; }
+  .hero { grid-template-columns: 1fr; padding: 52px var(--gutter) 64px; text-align: center; min-height: auto; }
+  .hero-copy { display: grid; justify-items: center; }
+  .hero-copy > p { margin-inline: auto; }
+  .hero-actions, .hero-trust { justify-content: center; }
+  .hero-visual { height: 480px; margin-top: 8px; }
+  .split-section { grid-template-columns: 1fr; gap: var(--s-5); padding: var(--s-7) var(--gutter); }
+  .booking-wrap, .contact-grid, .cart-layout { grid-template-columns: 1fr; }
+  .cart-layout { grid-template-columns: 1fr; }
+  .summary { position: static; }
+  .footer { grid-template-columns: repeat(2, 1fr); }
+  .service-grid-large, .service-grid { grid-template-columns: repeat(2, 1fr); }
+  .product-grid, .accessory-grid { grid-template-columns: repeat(2, 1fr); }
+  .ba-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width:860px) {
+  .header-cta { display: none; }
+  .cover-grid { grid-template-columns: repeat(2, 1fr); }
+  .wizard-body { grid-template-columns: 1fr; gap: var(--s-4); }
+  .cta { flex-direction: column; align-items: flex-start; padding: var(--s-5); margin: var(--s-5) 4% var(--s-7); }
+  .cta .hero-actions { justify-content: flex-start; width: 100%; }
+}
+
+/* Tablet portrait and below: drawer navigation + sticky action bar */
+@media (max-width:720px) {
+  :root { --header-h: 66px; --bar-h: 62px; --gutter: 20px; }
+  body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
+  .header { padding: 0 14px; }
+  .menu-btn { display: block; }
+  .nav {
+    position: fixed; top: calc(var(--header-h) + 8px); left: 12px; right: 12px;
+    display: grid; gap: 2px; padding: 12px; margin: 0;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lift); z-index: 70;
+    opacity: 0; visibility: hidden; transform: translateY(-12px) scale(.98);
+    transition: opacity .22s var(--ease), transform .22s var(--ease), visibility .22s var(--ease);
+    max-height: calc(100vh - var(--header-h) - 96px); overflow-y: auto;
+  }
+  .nav.is-open { opacity: 1; visibility: visible; transform: none; }
+  /* Scoped to plain nav links: `.nav a` alone outranks `.btn-primary` etc.
+     and would repaint the drawer's CTA buttons with the body text colour. */
+  .nav a:not(.btn) { padding: 13px 12px; border-radius: var(--radius-xs); font-size: 1rem; color: var(--text); }
+  .nav a:not(.btn):hover, .nav a:not(.btn).active { background: var(--accent-soft); }
+  .nav a::after { display: none; }
+  .nav-scrim { display: block; position: fixed; inset: 0; top: var(--header-h); background: rgba(5, 5, 10, .55); opacity: 0; visibility: hidden; transition: opacity .22s var(--ease), visibility .22s var(--ease); z-index: 65; }
+  .nav-scrim.is-open { opacity: 1; visibility: visible; }
+  .nav-cta-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .nav-cta-group .btn { font-size: .85rem; padding: 12px 10px; }
+  .nav-cta-group .full { grid-column: 1 / -1; }
+  .hero { padding: 40px var(--gutter) 54px; }
+  h1 { font-size: clamp(2.6rem, 12vw, 3.6rem); letter-spacing: -.04em; }
+  .page-hero h1 { font-size: clamp(2.4rem, 11vw, 3.4rem); }
+  .hero-visual { height: 420px; }
+  .phone { width: 196px; height: 392px; }
+  .phone-screen strong { font-size: 3rem; margin-top: 40px; }
+  .floating-card { padding: 11px 14px; }
+  .card-top { right: -6px; top: 12%; }
+  .card-bottom { left: -6px; bottom: 12%; }
+  .quick-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .quick-item { padding: 12px 5px; font-size: .76rem; line-height: 1.25; border-radius: var(--radius-sm); }
+  .quick-item i { font-size: 1rem; }
+  .section { padding: var(--s-7) var(--gutter); }
+  .section-head { display: grid; gap: 10px; align-items: start; margin-bottom: var(--s-4); }
+  .cover-showcase { padding: var(--s-7) var(--gutter); }
+  .shop-controls { top: var(--header-h); display: grid; gap: 12px; padding: 14px var(--gutter); }
+  .search-box { width: 100%; }
+  .filters { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; scrollbar-width: thin; }
+  .filter { white-space: nowrap; }
+  .service-grid, .service-grid-large, .product-grid, .accessory-grid { grid-template-columns: 1fr; }
+  /* Inline text CTAs need a touch-sized hit area, not just the glyph height. */
+  .card-actions { gap: 6px 20px; }
+  .card-actions a, .text-link, .service-cta, .wa-mini { padding: 11px 2px; }
+  .why-grid { grid-template-columns: 1fr; }
+  .timeline { grid-template-columns: 1fr; gap: 4px; }
+  .timeline-step { padding: 14px 0 14px 40px; border-left: 2px solid var(--line); margin-left: 11px; }
+  .timeline-step::before { top: 14px; left: -13px; }
+  .process-grid { grid-template-columns: 1fr 1fr; }
+  .booking-wrap, .contact-grid, .cart-layout { padding: var(--s-6) var(--gutter); }
+  .form-row { grid-template-columns: 1fr; gap: 0; }
+  .form-card { padding: var(--s-4); }
+  .cart-item { flex-wrap: wrap; }
+  .cart-details { min-width: calc(100% - 100px); }
+  .qty { margin-left: 98px; }
+  .footer { grid-template-columns: 1fr 1fr; padding: var(--s-7) var(--gutter) var(--s-5); }
+  .footer-bottom { grid-column: 1 / -1; }
+  .map-frame iframe { height: 300px; }
+  .mobile-bar {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(18px);
+    border-top: 1px solid var(--line); z-index: 80;
+  }
+  .mobile-bar .btn { padding: 12px 6px; font-size: .82rem; border-radius: var(--radius-xs); gap: 6px; }
+  .back-top { bottom: calc(var(--bar-h) + 16px); right: 14px; width: 40px; height: 40px; }
+  .toast { bottom: calc(var(--bar-h) + 16px); left: 14px; right: 14px; max-width: none; text-align: left; }
+  body.has-bar .toast, body.has-bar .back-top { bottom: calc(var(--bar-h) + 16px); }
+}
+
+@media (max-width:560px) {
+  .hero-visual { height: 380px; transform: scale(.94); }
+  .quick-grid { grid-template-columns: repeat(2, 1fr); }
+  .cover-grid { grid-template-columns: 1fr; }
+  .process-grid { grid-template-columns: 1fr; }
+  .device-panel div { height: 160px; font-size: 2.6rem; }
+  .btn { padding: 13px 17px; font-size: .9rem; }
+  .header { gap: 8px; }
+  .cart-btn { padding: 8px 10px; }
+  .icon-btn { padding: 8px 10px; }
+}
+
+/* Small phones: no horizontal scroll, no tiny text */
+@media (max-width:420px) {
+  :root { --gutter: 16px; }
+  h1 { font-size: 2.5rem; letter-spacing: -.04em; }
+  .page-hero h1 { font-size: 2.3rem; }
+  .hero-actions { flex-direction: column; width: 100%; }
+  .hero-actions .btn { width: 100%; }
+  .wizard-actions .btn { flex: 1 1 100%; }
+  .nav-cta-group { grid-template-columns: 1fr; }
+  .footer { grid-template-columns: 1fr; }
+  .logo { font-size: 1.3rem; }
+  .logo span { width: 27px; height: 27px; border-radius: 9px; font-size: .95rem; }
+}
+
+/* Fingers need a bigger grab target than a mouse on the before/after slider. */
+@media (pointer: coarse) {
+  .ba-knob { width: 40px; height: 40px; }
+}
+
+@media (max-width:380px) {
+  :root { --gutter: 14px; }
+  h1 { font-size: 2.15rem; }
+  .hero-visual { transform: scale(.86); height: 340px; }
+  .phone { width: 178px; height: 356px; }
+  .quick-grid { grid-template-columns: repeat(2, 1fr); }
+  .mobile-bar .btn { font-size: .74rem; padding: 11px 4px; letter-spacing: -.01em; }
+  .cart-item { gap: 10px; padding: 12px; }
+  .cart-thumb { width: 62px; height: 76px; }
+  .cart-details { min-width: calc(100% - 78px); }
+  .qty { margin-left: 78px; }
+}
+
+/* Very short viewports (landscape phones): shrink the phone mockup */
+@media (max-height:640px) and (min-width:721px) {
+  .hero { min-height: auto; padding-block: 40px; }
+  .hero-visual { height: 420px; }
+  .phone { transform: scale(.86) rotate(8deg); }
+}
