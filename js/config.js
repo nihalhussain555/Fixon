@@ -46,9 +46,9 @@
      * 4. HOURS / SOCIAL
      * ------------------------------------------------------------------ */
     openingHours: [
-      { days: "Monday - Friday", time: "SET_ME_HOURS" },
-      { days: "Saturday", time: "SET_ME_HOURS" },
-      { days: "Sunday", time: "SET_ME_HOURS" }
+      { days: "Monday - Sunday", time: "8:00 AM - 10:00 PM" },
+      // { days: "Saturday", time: "8:00 AM - 10:00 PM" },
+      // { days: "Sunday", time: "8:00 AM - 10:00 PM" }
     ],
     socialLinks: {}, // e.g. { instagram: "https://instagram.com/...", facebook: "https://..." }
 
