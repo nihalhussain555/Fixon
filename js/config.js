@@ -28,10 +28,10 @@
     phoneDial: "7306024668", // digits only, with country code
     whatsappNumber: "7306024668", // digits only, no "+" or spaces
     email: "fixoninnovative@gmail.com", // e.g. "care@fixon.example"
-    addressLine: "SET_ME_ADDRESS_LINE", // street / building line
+    addressLine: "Kerala Malappuram district", // street / building line
     addressCity: "MELATTUR",
-    addressRegion: "SET_ME_REGION",
-    addressPostalCode: "",
+    addressRegion: "India",
+    addressPostalCode: "679326",
     addressCountry: "IN",
 
     /* ------------------------------------------------------------------ *
@@ -40,7 +40,7 @@
      * mapsUrl: optional full link - if set it wins over mapsQuery.
      * ------------------------------------------------------------------ */
     mapsQuery: "SET_ME_MAPS_QUERY",
-    mapsUrl: "",
+    mapsUrl: "https://maps.app.goo.gl/4YbynqBVXH1pJBY48?g_st=aw",
 
     /* ------------------------------------------------------------------ *
      * 4. HOURS / SOCIAL
