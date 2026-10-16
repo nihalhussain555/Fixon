@@ -42,7 +42,7 @@
     var cart = getCart();
     var hit = cart.find(function (x) { return x.id === id; });
     if (hit) hit.qty += 1;
-    else cart.push({ id: p.id, name: p.name, brand: p.brand, model: p.model, category: p.category, qty: 1 });
+    else cart.push({ id: p.id, name: p.name, brand: p.brand, model: p.model, category: p.category, price: U.formatPrice(p.price) || "", qty: 1 });
     saveCart(cart);
     showToast(p.name + " added to cart", "success");
   }
@@ -412,6 +412,77 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Home banner slider - slides come from FIXON.banners. Autoplay stops for
+   * reduced motion, while the tab is hidden, and while a visitor is reading
+   * or tabbing through a slide, so nothing moves out from under them.
+   * ------------------------------------------------------------------ */
+  function initBanners() {
+    var root = document.getElementById("bannerSlider");
+    if (!root || !CFG.banners || !CFG.banners.length) return;
+
+    root.innerHTML =
+      '<div class="banner-track">' +
+        CFG.banners.map(function (b, i) {
+          return '<div class="banner" role="group" aria-roledescription="slide" aria-label="' + (i + 1) + " of " + CFG.banners.length + ': ' + b.title + '">' +
+            '<img class="banner-photo" src="' + U.photoSrc("banners", b.id) + '"' +
+              ' data-fallback="' + U.photoSrc("banners", "generic") + '"' +
+              ' width="1600" height="700" loading="' + (i ? "lazy" : "eager") + '" decoding="async" alt="">' +
+            '<div class="banner-copy"><span class="eyebrow">' + b.kicker + "</span>" +
+              "<h3>" + b.title + "</h3><p>" + b.text + "</p>" +
+              '<a class="btn btn-primary" href="' + b.href + '">' + b.cta + "</a></div>" +
+          "</div>";
+        }).join("") +
+      "</div>" +
+      '<button class="banner-nav prev" type="button" aria-label="Previous banner">‹</button>' +
+      '<button class="banner-nav next" type="button" aria-label="Next banner">›</button>' +
+      '<div class="banner-dots" role="tablist" aria-label="Choose a banner">' +
+        CFG.banners.map(function (b, i) {
+          return '<button type="button" role="tab" aria-label="' + b.title + '" aria-selected="' + (i === 0) + '"></button>';
+        }).join("") +
+      "</div>";
+
+    var slides = root.querySelectorAll(".banner");
+    var dots = root.querySelectorAll(".banner-dots button");
+    var index = 0;
+    var timer = null;
+    var reduced = document.documentElement.getAttribute("data-motion") === "reduced";
+    var live = root.querySelector(".banner-track");
+
+    function show(n) {
+      index = (n + slides.length) % slides.length;
+      slides.forEach(function (s, i) { s.classList.toggle("is-active", i === index); });
+      dots.forEach(function (d, i) { d.setAttribute("aria-selected", String(i === index)); });
+    }
+
+    function stop() { clearInterval(timer); timer = null; live.setAttribute("aria-live", "polite"); }
+    function start() {
+      if (reduced || timer || slides.length < 2) return;
+      timer = setInterval(function () {
+        if (document.hidden) return;
+        show(index + 1);
+      }, 6000);
+      live.setAttribute("aria-live", "off");
+    }
+
+    root.querySelector(".prev").addEventListener("click", function () { stop(); show(index - 1); });
+    root.querySelector(".next").addEventListener("click", function () { stop(); show(index + 1); });
+    dots.forEach(function (d, i) { d.addEventListener("click", function () { stop(); show(i); }); });
+
+    root.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { stop(); show(index - 1); }
+      else if (e.key === "ArrowRight") { stop(); show(index + 1); }
+    });
+    root.addEventListener("pointerenter", stop);
+    root.addEventListener("pointerleave", start);
+    root.addEventListener("focusin", stop);
+    root.addEventListener("focusout", start);
+    document.addEventListener("visibilitychange", function () { if (document.hidden) stop(); else start(); });
+
+    show(0);
+    start();
+  }
+
+  /* ------------------------------------------------------------------ *
    * Structured data - built from configured values only, never invented
    * ------------------------------------------------------------------ */
   function injectStructuredData() {
@@ -453,10 +524,28 @@
   function initShop() {
     var grid = document.getElementById("productGrid");
     if (!grid || typeof products === "undefined") return;
-    var current = "All";
+    var params = new URLSearchParams(location.search);
+    var fromBrand = (params.get("brand") || "").trim();
+    var fromModel = (params.get("model") || "").trim();
+    var current = fromBrand || "All";
+    var search = document.getElementById("searchInput");
+    /* A model picked on models.html simply becomes search text: one filter
+       path serves both the free-text box and the deep link. */
+    if (search && fromModel) search.value = fromModel;
+
+    function activeFilters() {
+      var bar = document.getElementById("activeFilters");
+      if (!bar) return;
+      if (!fromBrand && !fromModel) { bar.innerHTML = ""; return; }
+      var bits = [];
+      if (fromBrand) bits.push('<span class="af-chip">Brand <b>' + fromBrand + "</b></span>");
+      if (fromModel) bits.push('<span class="af-chip">Series <b>' + fromModel + "</b></span>");
+      bits.push('<a class="af-clear" href="shop.html">Clear filters ×</a>');
+      bar.innerHTML = bits.join("");
+    }
 
     function render() {
-      var q = (document.getElementById("searchInput") || {}).value || "";
+      var q = (search || {}).value || "";
       q = q.toLowerCase().trim();
       var list = products.filter(function (p) {
         var matchCat = current === "All" || p.category === current || p.brand === current;
@@ -468,9 +557,23 @@
       var count = document.getElementById("resultCount");
       if (count) count.textContent = list.length + (list.length === 1 ? " item" : " items");
       renderProducts(list, "productGrid");
+      if (!list.length) {
+        var empty = grid.querySelector(".empty-state");
+        if (empty) {
+          empty.innerHTML = "<h3>No listing tagged that yet</h3>" +
+            "<p>FIXON stocks more than this page shows. Send the exact device and we will confirm fit and price.</p>" +
+            '<a class="btn btn-sm btn-whatsapp" data-fixon-wa="accessory" data-fixon-token-category="a cover for ' + (fromModel || fromBrand || "my phone") + '" href="#">Ask on WhatsApp</a>';
+          hydrate();
+        }
+      }
     }
 
     document.querySelectorAll(".filter").forEach(function (btn) {
+      if (btn.dataset.filter === current) {
+        document.querySelectorAll(".filter").forEach(function (x) { x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
+        btn.classList.add("active");
+        btn.setAttribute("aria-pressed", "true");
+      }
       btn.addEventListener("click", function () {
         document.querySelectorAll(".filter").forEach(function (x) { x.classList.remove("active"); });
         btn.classList.add("active");
@@ -480,11 +583,23 @@
         render();
       });
     });
-    var search = document.getElementById("searchInput");
     if (search) search.addEventListener("input", render);
     var select = document.getElementById("sortSelect");
     if (select) select.addEventListener("change", render);
+    activeFilters();
     render();
+  }
+
+  /* Photo slots degrade to the neutral render instead of a broken icon. The
+     error event does not bubble, so this listens in the capture phase. */
+  function initPhotoFallback() {
+    document.addEventListener("error", function (e) {
+      var img = e.target;
+      if (!img || img.tagName !== "IMG" || !img.dataset.fallback) return;
+      if (img.dataset.fallbackTried) return;
+      img.dataset.fallbackTried = "1";
+      img.src = img.dataset.fallback;
+    }, true);
   }
 
   /* ------------------------------------------------------------------ *
@@ -494,12 +609,14 @@
     if (document.querySelector(".mobile-bar")) document.body.classList.add("has-bar");
     updateCartCount();
     hydrate();
+    initPhotoFallback();
     initThemeButton();
     initNav();
     initScrollUI();
     initFaq();
     initMap();
     initShop();
+    initBanners();
     initBeforeAfter();
     injectStructuredData();
     initReveal();
@@ -519,7 +636,7 @@
     /* Order text for the WhatsApp handoff - no fake totals, just the list */
     describe: function () {
       return getCart().map(function (i) {
-        return "- " + i.name + " (" + i.model + ") x" + i.qty;
+        return "- " + i.name + " (" + i.model + ") x" + i.qty + (i.price ? " @ " + i.price : "");
       }).join("\n");
     },
     clear: function () { saveCart([]); }

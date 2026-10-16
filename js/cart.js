@@ -33,7 +33,8 @@
           '<img class="cart-thumb" src="' + coverPhoto(i.category) + '" width="760" height="1013" loading="lazy" decoding="async" alt="' + i.name + '">' +
           '<div class="cart-details"><small>' + i.brand + " · " + i.model + "</small>" +
           "<h3>" + i.name + "</h3>" +
-          '<p class="price-on-request">Price on request</p></div>' +
+          '<p class="' + (i.price ? "product-price" : "price-on-request") + '">' +
+            (i.price || window.FIXON.priceNote) + "</p></div>" +
           '<div class="qty">' +
           '<button type="button" data-dec="' + i.id + '" aria-label="Decrease quantity of ' + i.name + '">−</button>' +
           "<span>" + i.qty + "</span>" +

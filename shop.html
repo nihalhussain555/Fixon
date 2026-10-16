@@ -59,6 +59,11 @@
   </section>
 
   <section class="shop-controls" aria-label="Shop filters">
+    <div class="finder-strip">
+      <span>Not sure what fits your phone?</span>
+      <a class="btn btn-sm btn-secondary" href="brands.html">Choose your brand</a>
+      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="accessory" data-fixon-token-category="the right cover for my model" href="#">Ask FIXON</a>
+    </div>
     <label class="search-box">
       <span aria-hidden="true">⌕</span>
       <span class="is-hidden">Search covers</span>
@@ -79,6 +84,7 @@
   </section>
 
   <section class="section">
+    <div class="active-filters" id="activeFilters"></div>
     <p class="note sample-note">The listings below are sample entries that show how products are displayed. They are not confirmed stock, and pricing is quoted by FIXON.</p>
     <div class="shop-top">
       <span id="resultCount" role="status">Loading items…</span>
@@ -89,6 +95,7 @@
         </select>
       </label>
     </div>
+    <noscript><p class="note">This list is built by <code>js/products.js</code>. With scripts off, message FIXON the device model and we will confirm fit and price.</p></noscript>
     <div class="product-grid" id="productGrid"></div>
     <div class="hero-actions" style="margin-top:40px">
       <a class="btn btn-primary" href="cart.html">Review my enquiry list</a>
@@ -112,6 +119,7 @@
     <a href="services.html">Services</a>
     <a href="repairs.html">Repairs</a>
     <a href="accessories.html">Accessories</a>
+    <a href="brands.html">Find by Device</a>
     <a href="shop.html">Shop Covers</a>
     <a href="about.html">About</a>
   </div>

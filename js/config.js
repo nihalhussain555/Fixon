@@ -141,7 +141,60 @@
       "Custom"
     ],
 
-    bookingTimes: ["10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"]
+    bookingTimes: ["10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"],
+
+    /* ------------------------------------------------------------------ *
+     * 7. DEVICE FINDER (brands.html / models.html)
+     * "match" is the text the shop filter looks for in a listing's brand,
+     * so it must equal the brand value used in js/products.js.
+     * "models" are fitment labels: they narrow the visible listings only.
+     * Appearing here does NOT claim FIXON stocks a part or cover for that
+     * device - edit this array to match what the shop actually carries.
+     * ------------------------------------------------------------------ */
+    deviceBrands: [
+      { id: "iphone", label: "Apple iPhone", match: "iPhone", models: [
+        "iPhone 15 / 16 series", "iPhone 13 / 14 series", "iPhone 11 / 12 series"
+      ] },
+      { id: "samsung", label: "Samsung", match: "Samsung", models: [
+        "Galaxy S24 / S25 series", "Galaxy A series", "Galaxy M / F series"
+      ] },
+      { id: "oneplus", label: "OnePlus", match: "OnePlus", models: [
+        "OnePlus 12 / 13", "OnePlus Nord series"
+      ] },
+      { id: "pixel", label: "Google Pixel", match: "Pixel", models: [
+        "Pixel 8 / 9", "Pixel 6 / 7"
+      ] },
+      { id: "xiaomi", label: "Xiaomi / Redmi", match: "Xiaomi", models: [
+        "Redmi / Note series", "Xiaomi numbered series"
+      ] },
+      { id: "vivo", label: "Vivo", match: "Vivo", models: [ "V series", "Y series" ] },
+      { id: "oppo", label: "OPPO", match: "OPPO", models: [ "Reno series", "A series" ] },
+      { id: "realme", label: "Realme", match: "Realme", models: [ "Numbered series", "C / Narzo series" ] },
+      { id: "motorola", label: "Motorola", match: "Motorola", models: [ "Edge series", "G series" ] },
+      { id: "nothing", label: "Nothing", match: "Nothing", models: [ "Phone series" ] },
+      { id: "other-android", label: "Other Android", match: "Android", models: [ "Tell us the model" ] }
+    ],
+
+    /* ------------------------------------------------------------------ *
+     * 8. SHOP DISPLAY
+     * Prices are business facts, so none are set. A listing shows its price
+     * only when a numeric "price" is added to it in js/products.js; until
+     * then cards keep showing "Price on request".
+     * ------------------------------------------------------------------ */
+    currencySymbol: "₹", // shown before a configured price
+    priceNote: "Price on request",
+
+    /* ------------------------------------------------------------------ *
+     * 9. HOME BANNERS (index.html slider)
+     * Photos come from images/banners/<id>.jpg; a missing file falls back
+     * to images/banners/generic.jpg. Copy stays free of numbers, ratings
+     * and warranty wording because those are FIXON's to confirm.
+     * ------------------------------------------------------------------ */
+    banners: [
+      { id: "screen", kicker: "SCREEN REPAIR", title: "Cracked display?", text: "Bring the phone in - we diagnose it first, then quote before any work starts.", cta: "Book a screen repair", href: "booking.html?service=Screen%20Replacement" },
+      { id: "covers", kicker: "COVERS & GLASS", title: "Protect what you fixed", text: "Covers, tempered glass and chargers for the model you actually carry.", cta: "Browse covers", href: "brands.html" },
+      { id: "tools", kicker: "REPAIR TOOLS", title: "Workshop parts, checked on the bench", text: "Ask FIXON what is in hand for your device before you order anything online.", cta: "Talk to FIXON", href: "contact.html" }
+    ]
 
     /* NOTE on honesty:
      * This file deliberately contains no repair prices, no review scores,
@@ -205,6 +258,27 @@
     return rows.length ? rows : null;
   }
 
+  /* A listing shows a price only when it carries a usable number. An absent
+     or blank price is the owner's "not set yet", never a stand-in figure. */
+  function formatPrice(value) {
+    if (value === null || value === undefined || value === "") return null;
+    var n = Number(String(value).replace(/[^\d.]/g, ""));
+    if (!isFinite(n) || n <= 0) return null;
+    return FIXON.currencySymbol + n.toLocaleString("en-IN");
+  }
+
+  function brandById(id) {
+    var list = FIXON.deviceBrands;
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  /* Photos follow the same rule as the cover renders: one predictable file
+     per item, so dropping a real photo over it needs no code change. */
+  function photoSrc(dir, slug) {
+    return "images/" + dir + "/" + String(slug).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg";
+  }
+
   window.FIXON = FIXON;
   window.fixonUtils = {
     isSet: isSet,
@@ -215,6 +289,9 @@
     mapsEmbedUrl: mapsEmbedUrl,
     addressLines: addressLines,
     hoursText: hoursText,
-    firstConfigured: firstConfigured
+    firstConfigured: firstConfigured,
+    formatPrice: formatPrice,
+    brandById: brandById,
+    photoSrc: photoSrc
   };
 })();

@@ -36,6 +36,7 @@
   .footer { grid-template-columns: repeat(2, 1fr); }
   .service-grid-large, .service-grid { grid-template-columns: repeat(2, 1fr); }
   .product-grid, .accessory-grid { grid-template-columns: repeat(2, 1fr); }
+  .brand-grid { grid-template-columns: repeat(3, 1fr); }
   .ba-grid { grid-template-columns: 1fr; }
 }
 
@@ -93,6 +94,16 @@
   .filters { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; scrollbar-width: thin; }
   .filter { white-space: nowrap; }
   .service-grid, .service-grid-large, .product-grid, .accessory-grid { grid-template-columns: 1fr; }
+  /* Banner becomes a taller, text-led panel so the copy stays readable. */
+  .banner-slider { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); }
+  .banner::after { background: linear-gradient(to top, rgba(6, 6, 10, .92) 26%, rgba(6, 6, 10, .5) 62%, rgba(6, 6, 10, .12) 100%); }
+  .banner-copy { align-content: end; height: 100%; padding: 20px 18px; gap: 8px; }
+  .banner-copy p { font-size: .88rem; }
+  .banner-nav { width: 34px; height: 34px; font-size: 1.2rem; }
+  .brand-grid { grid-template-columns: repeat(2, 1fr); }
+  .model-grid { grid-template-columns: 1fr; }
+  .finder-strip { font-size: .8rem; }
+  .finder-strip .btn { flex: 1 1 auto; }
   /* Inline text CTAs need a touch-sized hit area, not just the glyph height. */
   .card-actions { gap: 6px 20px; }
   .card-actions a, .text-link, .service-cta, .wa-mini { padding: 11px 2px; }

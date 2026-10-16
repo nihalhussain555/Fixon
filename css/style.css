@@ -287,6 +287,48 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 .card-top { top: 15%; right: 2%; animation: float 8s var(--ease) infinite alternate; }
 .card-bottom { bottom: 14%; left: 3%; animation: float 9s var(--ease) infinite alternate-reverse; }
 
+/* 5b. HOME BANNER SLIDER ================================================= */
+.banner-slider {
+  position: relative; margin: 0 var(--gutter) var(--s-6); border-radius: var(--radius-xl);
+  overflow: hidden; border: 1px solid var(--line); background: var(--bg-boost);
+  aspect-ratio: 16 / 7; min-height: 260px;
+}
+.banner-track { position: absolute; inset: 0; }
+.banner {
+  position: absolute; inset: 0; opacity: 0; visibility: hidden;
+  transition: opacity .55s var(--ease), visibility .55s var(--ease);
+}
+.banner.is-active { opacity: 1; visibility: visible; }
+.banner-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Scrim keeps the copy legible over any photo the owner drops in later. */
+.banner::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, rgba(6, 6, 10, .88) 8%, rgba(6, 6, 10, .55) 48%, rgba(6, 6, 10, .1) 82%);
+}
+.banner-copy {
+  position: relative; z-index: 2; align-content: center; height: 100%;
+  display: grid; justify-items: start; gap: 10px; padding: 26px var(--s-5); max-width: 560px; color: #fff;
+}
+.banner-copy .eyebrow { color: var(--accent); }
+.banner-copy h3 { font-family: var(--font-display); font-size: clamp(1.5rem, 3.1vw, 2.35rem); line-height: 1.08; margin: 0; }
+.banner-copy p { color: rgba(255, 255, 255, .82); font-size: .95rem; margin: 0; }
+.banner-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .3);
+  background: rgba(8, 8, 12, .5); color: #fff; font-size: 1.4rem; line-height: 1;
+  display: grid; place-items: center; backdrop-filter: blur(5px); transition: background var(--dur) var(--ease);
+}
+.banner-nav:hover { background: rgba(8, 8, 12, .78); }
+.banner-nav.prev { left: 12px; }
+.banner-nav.next { right: 12px; }
+.banner-dots { position: absolute; bottom: 14px; left: 0; right: 0; z-index: 3; display: flex; gap: 8px; justify-content: center; }
+.banner-dots button {
+  width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0;
+  background: rgba(255, 255, 255, .42); transition: all var(--dur) var(--ease); cursor: pointer;
+}
+.banner-dots button[aria-selected="true"] { background: #fff; width: 26px; border-radius: var(--radius-pill); }
+.banner-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
 /* 6. QUICK SERVICE STRIP ================================================ */
 .quick-strip { padding: 0 var(--gutter) var(--s-7); }
 .quick-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; }
@@ -298,6 +340,12 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 }
 .quick-item:hover { transform: translateY(-4px); border-color: var(--accent-line); color: var(--text); background: var(--surface-2); }
 .quick-item i { font-style: normal; font-size: 1.15rem; color: var(--accent); }
+/* Tiny circular photo per shortcut; the label carries the meaning, so the
+   image stays decorative. */
+.quick-thumb {
+  width: 38px; height: 38px; border-radius: 50%; object-fit: cover; background: var(--bg-boost);
+  border: 1px solid var(--line);
+}
 
 /* 7. SERVICE CARDS ====================================================== */
 .service-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -315,13 +363,17 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 }
 .service-card:hover { transform: translateY(-6px); border-color: var(--accent-line); box-shadow: var(--shadow); }
 .service-card:hover::after { opacity: 1; }
-.service-icon {
-  width: 48px; height: 48px; border-radius: 15px; background: var(--accent-soft);
-  border: 1px solid var(--accent-line); display: grid; place-items: center;
-  font-size: 1.25rem; color: var(--accent); margin-bottom: 24px;
-  transition: transform var(--dur) var(--ease), background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+/* Photos sit flush across the card top: the negative margins cancel the
+   card's own 26px padding, and the card clips the corners. */
+.service-visual {
+  position: relative; display: block; height: 138px; overflow: hidden; margin: -26px -26px 20px;
+  background: var(--bg-boost); border-bottom: 1px solid var(--line);
 }
-.service-card:hover .service-icon { transform: scale(1.06) rotate(-6deg); background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); }
+.service-photo {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
+  transition: transform .5s var(--ease);
+}
+.service-card:hover .service-photo { transform: scale(1.06); }
 .service-card h3 { font-size: 1.12rem; }
 .service-card p { color: var(--muted); font-size: .87rem; margin: 9px 0 18px; flex: 1; }
 .service-card b, .service-meta { margin-top: auto; font-size: .85rem; color: var(--accent); font-weight: 700; }
@@ -435,6 +487,68 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
   transition: all var(--dur) var(--ease);
 }
 .add-btn:hover { background: var(--text); color: var(--bg); border-color: var(--text); }
+/* Shown only when a listing carries a configured price; otherwise the card
+   keeps its "Price on request" line. */
+.product-price { font-size: 1.12rem; font-weight: 700; font-family: var(--font-display); color: var(--text); }
+.product-price small { font-size: .68rem; font-weight: 600; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-left: 6px; }
+
+/* 11b. DEVICE FINDER ==================================================== */
+.finder-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; font-size: .82rem; }
+.finder-crumbs span { color: var(--muted); }
+.finder-crumbs b, .finder-crumbs a {
+  padding: 6px 13px; border-radius: var(--radius-pill); border: 1px solid var(--line);
+  background: var(--surface); color: var(--muted); font-weight: 600;
+}
+.finder-crumbs b { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent); }
+
+.brand-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.brand-tile {
+  position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius-lg);
+  border: 1px solid var(--line); background: var(--bg-boost);
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.brand-tile:hover { transform: translateY(-5px); border-color: var(--accent-line); box-shadow: var(--shadow); }
+.brand-visual { position: absolute; inset: 0; }
+.brand-photo {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
+  transition: transform .5s var(--ease);
+}
+.brand-tile:hover .brand-photo { transform: scale(1.06); }
+.brand-label {
+  position: relative; margin-top: auto; padding: 32px 14px 13px; color: #fff;
+  background: linear-gradient(to top, rgba(6, 6, 10, .92), rgba(6, 6, 10, .5) 55%, transparent);
+}
+.brand-label b { display: block; font-family: var(--font-display); font-size: 1.02rem; }
+.brand-label small { display: block; font-size: .74rem; color: rgba(255, 255, 255, .74); margin-top: 2px; }
+
+.model-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.model-item {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 14px;
+  padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); transition: all var(--dur) var(--ease);
+}
+.model-item b { grid-column: 1; font-family: var(--font-display); font-size: 1rem; }
+.model-item small { grid-column: 1; color: var(--muted); font-size: .78rem; }
+.model-arrow { grid-column: 2; grid-row: 1 / span 2; color: var(--accent); font-size: 1.1rem; }
+.model-item:hover { border-color: var(--accent-line); background: var(--surface-2); transform: translateX(4px); }
+.model-item[data-weak="1"] { border-style: dashed; }
+.model-item[data-weak="1"] .model-arrow { color: var(--muted); }
+
+.finder-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%;
+  padding: 12px 16px; border: 1px dashed var(--line-strong); border-radius: var(--radius-md);
+  background: var(--surface); font-size: .84rem; color: var(--muted); margin-bottom: 4px;
+}
+.finder-strip span { flex: 1 1 190px; }
+
+.active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 14px; }
+.active-filters:empty { display: none; }
+.af-chip {
+  display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: var(--radius-pill);
+  background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--muted); font-size: .76rem;
+}
+.af-chip b { color: var(--text); font-weight: 700; }
+.af-clear { font-size: .76rem; font-weight: 600; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 
 /* 12. WHY FIXON ========================================================= */
 .why-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }

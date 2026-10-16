@@ -9,14 +9,18 @@
    PHOTOS: each card shows images/covers/<category slug>.jpg. Those files are
    illustrative renders, not your stock. Drop a real photo over any of them
    using the same filename and it appears everywhere with no code change.
+
+   PRICES: "price" is left null on purpose. Set it to a number on a listing
+   and the card switches from "Price on request" to that figure, formatted
+   with FIXON.currencySymbol. Leaving it null shows nothing invented.
    ========================================================================== */
 var products = [
-  { id: 1, name: "Clear Armor Case", brand: "iPhone", model: "iPhone 15 / 16 series", category: "Clear" },
-  { id: 2, name: "Shockproof Dual-Layer Case", brand: "Samsung", model: "Galaxy S24 / S25 series", category: "Shockproof" },
-  { id: 3, name: "Silicone Soft-Touch Case", brand: "OnePlus", model: "OnePlus 12 / 13", category: "Silicone" },
-  { id: 4, name: "MagSafe-Compatible Case", brand: "iPhone", model: "iPhone 13 / 14 series", category: "MagSafe" },
-  { id: 5, name: "Matte Minimal Case", brand: "Pixel", model: "Pixel 8 / 9", category: "Minimal" },
-  { id: 6, name: "Printed Everyday Case", brand: "Xiaomi", model: "Redmi / Note series", category: "Printed" }
+  { id: 1, name: "Clear Armor Case", brand: "iPhone", model: "iPhone 15 / 16 series", category: "Clear", price: null },
+  { id: 2, name: "Shockproof Dual-Layer Case", brand: "Samsung", model: "Galaxy S24 / S25 series", category: "Shockproof", price: null },
+  { id: 3, name: "Silicone Soft-Touch Case", brand: "OnePlus", model: "OnePlus 12 / 13", category: "Silicone", price: null },
+  { id: 4, name: "MagSafe-Compatible Case", brand: "iPhone", model: "iPhone 13 / 14 series", category: "MagSafe", price: null },
+  { id: 5, name: "Matte Minimal Case", brand: "Pixel", model: "Pixel 8 / 9", category: "Minimal", price: null },
+  { id: 6, name: "Printed Everyday Case", brand: "Xiaomi", model: "Redmi / Note series", category: "Printed", price: null }
 ];
 
 /* images/covers/ is keyed by style name so one photo serves the shop card,
@@ -26,6 +30,7 @@ function coverPhoto(style) {
 }
 
 function productCard(p) {
+  var price = window.fixonUtils.formatPrice(p.price);
   return '<article class="product-card reveal">' +
     '<div class="product-visual">' +
       '<span class="product-tag">' + p.category + "</span>" +
@@ -35,7 +40,9 @@ function productCard(p) {
     '<div class="product-info">' +
       "<small>" + p.brand + " · " + p.model + "</small>" +
       "<h3>" + p.name + "</h3>" +
-      '<p class="price-on-request">Price on request</p>' +
+      (price
+        ? '<p class="product-price">' + price + "<small>confirm at counter</small></p>"
+        : '<p class="price-on-request">' + window.FIXON.priceNote + "</p>") +
       '<button class="add-btn" data-add="' + p.id + '">Add to enquiry <span>+</span></button>' +
       '<a class="btn btn-sm btn-whatsapp" data-product-wa="' + p.id + '" href="#">Ask on WhatsApp</a>' +
     "</div>" +
