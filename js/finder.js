@@ -1,11 +1,14 @@
 /* ==========================================================================
    FIXON - device finder (brands.html + models.html)
    --------------------------------------------------------------------------
-   Both pages render from FIXON.deviceBrands in js/config.js and hand the
-   visitor to shop.html with ?brand= / ?model=, where the existing filter
-   does the narrowing. Static only: no account, no cart backend, no stock
-   claim. A series appearing here means listings are tagged with it - it does
-   not mean a part or cover is on the shelf, so every step says to ask.
+   Brand and series names come from FIXON.deviceBrands in js/config.js; the
+   item counts next to them come from the shop's live catalog (js/catalog.js),
+   so this page can never show a number the spreadsheet does not back up.
+   Selections hand the visitor to shop.html with ?brand= / ?model=.
+
+   No account, no cart, no stock claim. A series appearing here means listings
+   are tagged with it - it does not mean a part or cover is on the shelf, so
+   every step says to ask.
    ========================================================================== */
 (function () {
   "use strict";
@@ -18,23 +21,41 @@
     return raw.trim();
   }
 
-  /* Series that actually have listings, used to keep a dead-end selection
-     honest instead of showing an empty grid. */
+  /* Rows that actually carry this brand/series tag. The catalog loads
+     asynchronously, so an absent loader simply means nothing to count yet. */
   function countFor(match, model) {
-    if (typeof products === "undefined") return 0;
-    return products.filter(function (p) {
-      var brand = p.brand === match || p.model.indexOf(match) !== -1;
-      return brand && (!model || p.model.indexOf(model) !== -1);
+    var C = window.fixonCatalog;
+    if (!C) return 0;
+    var brand = match.toLowerCase();
+    var series = String(model || "").toLowerCase();
+    return C.rows().filter(function (p) {
+      var owns = (p.brand || "").toLowerCase() === brand ||
+                 (p.model || "").toLowerCase().indexOf(brand) !== -1;
+      return owns && (!series || (p.model || "").toLowerCase().indexOf(series) !== -1);
     }).length;
   }
 
+  /* While the first read is still in flight a zero would be a lie, so tiles
+     say "check the listings" instead of "nothing listed". */
+  function pending() {
+    var C = window.fixonCatalog;
+    if (!C) return false;
+    var s = C.status();
+    return (s.status === "loading" || s.status === "idle") && !s.rows.length;
+  }
+
+  function plural(n) { return n + " listed item" + (n === 1 ? "" : "s"); }
+
   /* ------------------------------------------------------------------ *
    * brands.html - one photo tile per supported brand
-   * ------------------------------------------------------------------ */
+   * ------------------------------------------------------------------ *
+   * Markup is built from config values only; no spreadsheet text reaches
+   * innerHTML here (counts are numbers). */
   function initBrands() {
     var grid = document.getElementById("brandGrid");
     if (!grid) return;
     var list = window.FIXON.deviceBrands;
+    var wait = pending();
 
     grid.innerHTML = list.map(function (b) {
       var n = countFor(b.match, "");
@@ -45,7 +66,7 @@
             ' width="760" height="560" loading="lazy" decoding="async" alt="">' +
         "</span>" +
         '<span class="brand-label"><b>' + b.label + "</b>" +
-          "<small>" + (n ? n + " listed item" + (n === 1 ? "" : "s") : "Ask us about this brand") + "</small>" +
+          "<small>" + (wait ? "Loading listings" : n ? plural(n) : "Ask us about this brand") + "</small>" +
         "</span>" +
       "</a>";
     }).join("");
@@ -78,6 +99,8 @@
       return;
     }
 
+    var wait = pending();
+
     if (heading) heading.innerHTML = brand.label + "<br><em>Which series?</em>";
     if (support) support.textContent = "Choose the series closest to your device, then see the covers and accessories tagged for it.";
     if (crumbs) crumbs.innerHTML = '<a href="brands.html">Brands</a><span aria-hidden="true">/</span><b>' + brand.label + "</b>";
@@ -87,20 +110,34 @@
       return '<a class="model-item reveal" href="shop.html?brand=' + esc(brand.match) + "&model=" + esc(m) + '"' +
         (n ? "" : ' data-weak="1"') + ">" +
         "<b>" + m + "</b>" +
-        '<small>' + (n ? "View " + n + " item" + (n === 1 ? "" : "s") : "Nothing listed yet - ask us") + "</small>" +
+        '<small>' + (wait ? "Loading listings" : n ? "View " + plural(n) : "Nothing listed yet - ask us") + "</small>" +
         '<span class="model-arrow" aria-hidden="true">→</span>' +
       "</a>";
     }).join("");
 
     /* Ask-about-my-model keeps the exact-model gap honest. */
     if (note) {
-      note.innerHTML = "Series names are only how listings are tagged. If your exact model is not here, send it to FIXON on WhatsApp and we will confirm fit before you travel.";
+      note.textContent = "Series names are only how listings are tagged. If your exact model is not here, send it to FIXON on WhatsApp and we will confirm fit before you travel.";
     }
     if (typeof window.fixonHydrate === "function") window.fixonHydrate();
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  /* The catalog can land after DOMContentLoaded, so render once now for the
+     config-driven parts and again when the loader reports. Subscribing
+     through fixonCatalog also starts the single shared request. */
+  function boot() {
     initBrands();
     initModels();
-  });
+    var C = window.fixonCatalog;
+    if (C && typeof C.onReady === "function") C.onReady(function () {
+      initBrands();
+      initModels();
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
 })();

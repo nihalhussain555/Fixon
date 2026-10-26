@@ -4,14 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FIXON | Mobile Repair &amp; Accessories</title>
-  <meta name="description" content="Professional iPhone and Android mobile repair, diagnostics and accessories at FIXON.">
+  <meta name="description" content="FIXON: everything your phone needs. Browse the mobile accessory catalog, book iPhone and Android repairs, and use counter services like protector fitting and phone setup.">
   <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="FIXON">
   <meta property="og:title" content="FIXON | Mobile Repair &amp; Accessories">
-  <meta property="og:description" content="Professional iPhone and Android mobile repair, diagnostics and accessories at FIXON.">
+  <meta property="og:description" content="Mobile accessory catalog, repairs and everyday phone services at FIXON. Independent service provider.">
   <!-- og:url and og:image: set these once the live domain and a share image exist. -->
+  <meta property="og:url" content="" data-fixon-og="url">
+  <meta property="og:image" content="" data-fixon-og="image">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,10 +30,11 @@
 <header class="header">
   <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
   <nav class="nav" id="primaryNav" aria-label="Primary">
-    <a class="active" href="index.html" aria-current="page">Home</a>
+    <a class="active" href="index.html">Home</a>
+    <a href="shop.html">Products</a>
+    <a href="accessories.html">Categories</a>
     <a href="services.html">Services</a>
     <a href="repairs.html">Repairs</a>
-    <a href="accessories.html">Accessories</a>
     <a href="about.html">About</a>
     <a href="contact.html">Contact</a>
     <div class="nav-cta-group">
@@ -46,7 +50,6 @@
       <a class="btn btn-sm btn-primary" href="booking.html">Book Repair</a>
     </div>
     <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☼</button>
-    <a class="cart-btn" href="cart.html" aria-label="Your enquiry list">🛒 <span id="cartCount">0</span></a>
     <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu" title="Menu"><i></i><i></i><i></i></button>
   </div>
 </header>
@@ -58,11 +61,11 @@
   <section class="hero">
     <div class="hero-copy">
       <div class="eyebrow"><span class="pulse" aria-hidden="true"></span> MOBILE REPAIR · SERVICES · ACCESSORIES</div>
-      <h1>Your Phone.<br><em>Fixed Right.</em></h1>
-      <p>Professional smartphone repair, diagnostics and accessories for Android and iPhone.</p>
+      <h1>Everything Your<br><em>Phone Needs.</em></h1>
+      <p>Explore quality mobile accessories and everyday mobile services. Browse the shop list, book a repair, or message FIXON with the device and the problem.</p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="booking.html">Book a Repair <span>↗</span></a>
-        <a class="btn btn-secondary" href="services.html">Explore Services</a>
+        <a class="btn btn-primary" href="shop.html">Explore Accessories <span>↗</span></a>
+        <a class="btn btn-secondary" href="services.html">View Services</a>
       </div>
       <div class="hero-actions">
         <a class="btn btn-sm btn-outline" data-fixon-tel href="#">Call Now</a>
@@ -71,7 +74,7 @@
       <div class="hero-trust">
         <span>iPhone &amp; Android</span>
         <span>Diagnostics before repair</span>
-        <span>Covers &amp; accessories in store</span>
+        <span>Covers &amp; accessories for Android and iPhone</span>
       </div>
     </div>
     <div class="hero-visual" aria-hidden="true">
@@ -190,15 +193,15 @@
       <a class="text-link" href="accessories.html">Browse all accessories →</a>
     </div>
     <div class="accessory-grid">
-      <a class="accessory-card reveal" href="shop.html">Phone Covers <em>Explore →</em></a>
-      <a class="accessory-card reveal" data-delay="1" href="accessories.html#tempered-glass">Tempered Glass <em>Explore →</em></a>
-      <a class="accessory-card reveal" data-delay="2" href="accessories.html#chargers">Chargers <em>Explore →</em></a>
-      <a class="accessory-card reveal" href="accessories.html#cables">Cables <em>Explore →</em></a>
-      <a class="accessory-card reveal" data-delay="1" href="accessories.html#power-adapters">Power Adapters <em>Explore →</em></a>
-      <a class="accessory-card reveal" data-delay="2" href="accessories.html#earphones">Earphones <em>Explore →</em></a>
-      <a class="accessory-card reveal" href="accessories.html#tws">TWS <em>Explore →</em></a>
-      <a class="accessory-card reveal" data-delay="1" href="accessories.html#car-chargers">Car Chargers <em>Explore →</em></a>
-      <a class="accessory-card reveal" data-delay="2" href="accessories.html#phone-stands">Phone Stands <em>Explore →</em></a>
+      <a class="accessory-card reveal" href="shop.html?cat=cases">Cases &amp; Covers <em>Browse →</em></a>
+      <a class="accessory-card reveal" data-delay="1" href="shop.html?cat=protectors">Tempered Glass <em>Browse →</em></a>
+      <a class="accessory-card reveal" data-delay="2" href="shop.html?cat=chargers">Chargers <em>Browse →</em></a>
+      <a class="accessory-card reveal" href="shop.html?cat=cables">Cables <em>Browse →</em></a>
+      <a class="accessory-card reveal" data-delay="1" href="shop.html?cat=power-banks">Power Banks <em>Browse →</em></a>
+      <a class="accessory-card reveal" data-delay="2" href="shop.html?cat=audio">Earphones &amp; TWS <em>Browse →</em></a>
+      <a class="accessory-card reveal" href="shop.html?cat=speakers">Speakers <em>Browse →</em></a>
+      <a class="accessory-card reveal" data-delay="1" href="shop.html?cat=wearables">Wearables <em>Browse →</em></a>
+      <a class="accessory-card reveal" data-delay="2" href="shop.html?cat=stands">Stands &amp; Holders <em>Browse →</em></a>
     </div>
   </section>
 
@@ -207,7 +210,7 @@
     <div class="center-head">
       <span class="eyebrow">PHONE COVERS</span>
       <h2 id="coverTitle">Find Your Style.</h2>
-      <p>Every style is stocked for common iPhone and Android models &mdash; ask about your exact device.</p>
+      <p>These are the cover styles FIXON lists &mdash; ask about your exact model before you travel.</p>
     </div>
     <div class="cover-grid">
       <a class="cover-tile reveal" href="shop.html"><img class="cover-shot" src="images/covers/clear.jpg" width="760" height="1013" loading="lazy" decoding="async" alt="Clear phone cover"><span class="cover-label"><b>Clear</b><small>Shows the original finish</small></span></a>
@@ -219,7 +222,7 @@
       <a class="cover-tile reveal" data-delay="2" href="shop.html"><img class="cover-shot" src="images/covers/minimal.jpg" width="760" height="1013" loading="lazy" decoding="async" alt="Thin minimal phone cover"><span class="cover-label"><b>Minimal</b><small>Thin and plain</small></span></a>
       <a class="cover-tile reveal" data-delay="3" href="accessories.html#custom"><img class="cover-shot" src="images/covers/custom.jpg" width="760" height="1013" loading="lazy" decoding="async" alt="Blank phone cover ready for a custom design"><span class="cover-label"><b>Custom</b><small>Ask us about your design</small></span></a>
     </div>
-    <div class="center-head" style="margin:34px 0 0"><a class="btn btn-secondary" href="shop.html">Explore Covers</a></div>
+    <div class="center-head" style="margin:34px 0 0"><a class="btn btn-secondary" href="shop.html">Browse all products</a></div>
   </section>
 
   <!-- FEATURED SAMPLE PRODUCTS -->
@@ -345,18 +348,17 @@
   </div>
   <div>
     <b>Explore</b>
+    <a href="shop.html">All Products</a>
+    <a href="accessories.html">Categories</a>
     <a href="services.html">Services</a>
     <a href="repairs.html">Repairs</a>
-    <a href="accessories.html">Accessories</a>
     <a href="brands.html">Find by Device</a>
-    <a href="shop.html">Shop Covers</a>
     <a href="about.html">About</a>
   </div>
   <div>
     <b>Support</b>
     <a href="booking.html">Book Repair</a>
     <a href="contact.html">Contact</a>
-    <a href="cart.html">My Enquiry List</a>
     <a href="contact.html#faq">Questions</a>
   </div>
   <div>
@@ -382,6 +384,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/config.js"></script>
+<script src="js/catalog.js"></script>
 <script src="js/products.js"></script>
 <script src="js/app.js"></script>
 <script src="js/quote.js"></script>

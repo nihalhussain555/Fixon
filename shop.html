@@ -3,14 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Shop Phone Covers | FIXON Accessories</title>
-  <meta name="description" content="Browse phone covers at FIXON: clear, shockproof, silicone, MagSafe-compatible, printed, premium and minimal cases for iPhone, Samsung, OnePlus, Pixel and more.">
+  <title>Mobile Accessories Catalog | FIXON</title>
+  <meta name="description" content="Browse the FIXON accessory catalog: cases and covers, tempered glass, chargers, cables, power banks, earphones, speakers, wearables, stands and memory cards. Search by name, brand or model.">
   <meta name="theme-color" content="#0b0b0e" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f7f7f9" media="(prefers-color-scheme: light)">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="FIXON">
-  <meta property="og:title" content="Shop Phone Covers | FIXON">
-  <meta property="og:description" content="Phone covers for Android and iPhone. Ask FIXON for current stock, models and pricing.">
+  <meta property="og:title" content="Mobile Accessories Catalog | FIXON">
+  <meta property="og:description" content="The shop's own accessory list, searchable by name, brand and model. Ask FIXON to confirm fit, stock and price.">
+  <!-- og:url and og:image: set these once the live domain and a share image exist. -->
+  <meta property="og:url" content="" data-fixon-og="url">
+  <meta property="og:image" content="" data-fixon-og="image">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,9 +31,10 @@
   <a class="logo" href="index.html"><span aria-hidden="true">F</span>IXON</a>
   <nav class="nav" id="primaryNav" aria-label="Primary">
     <a href="index.html">Home</a>
+    <a class="active" href="shop.html">Products</a>
+    <a href="accessories.html">Categories</a>
     <a href="services.html">Services</a>
     <a href="repairs.html">Repairs</a>
-    <a class="active" href="accessories.html">Accessories</a>
     <a href="about.html">About</a>
     <a href="contact.html">Contact</a>
     <div class="nav-cta-group">
@@ -45,7 +50,6 @@
       <a class="btn btn-sm btn-primary" href="booking.html">Book Repair</a>
     </div>
     <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☼</button>
-    <a class="cart-btn" href="cart.html" aria-label="Your enquiry list">🛒 <span id="cartCount">0</span></a>
     <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu" title="Menu"><i></i><i></i><i></i></button>
   </div>
 </header>
@@ -53,12 +57,12 @@
 
 <main id="main">
   <section class="page-hero compact">
-    <span class="eyebrow">FIXON SHOP</span>
-    <h1>Protection with<br><em>personality.</em></h1>
-    <p>Search the cover styles FIXON stocks, filter by brand, and send the shortlist on WhatsApp for a real answer on fit and price.</p>
+    <span class="eyebrow">FIXON CATALOG</span>
+    <h1>Everything your<br><em>phone needs.</em></h1>
+    <p>Covers, protectors, chargers, cables, audio and more. This list is the shop's own catalogue - search it, filter it, then ask FIXON on WhatsApp to confirm fit, stock and price.</p>
   </section>
 
-  <section class="shop-controls" aria-label="Shop filters">
+  <section class="shop-controls" aria-label="Catalog filters">
     <div class="finder-strip">
       <span>Not sure what fits your phone?</span>
       <a class="btn btn-sm btn-secondary" href="brands.html">Choose your brand</a>
@@ -66,44 +70,55 @@
     </div>
     <label class="search-box">
       <span aria-hidden="true">⌕</span>
-      <span class="is-hidden">Search covers</span>
-      <input id="searchInput" type="search" placeholder="Search covers, brands or models..." autocomplete="off">
+      <span class="is-hidden">Search the catalog</span>
+      <input id="searchInput" type="search" placeholder="Search by name, brand, model or category..." autocomplete="off">
     </label>
-    <div class="filters" id="filters" role="group" aria-label="Filter by brand or style">
-      <button class="filter active" type="button" data-filter="All" aria-pressed="true">All</button>
-      <button class="filter" type="button" data-filter="iPhone" aria-pressed="false">iPhone</button>
-      <button class="filter" type="button" data-filter="Samsung" aria-pressed="false">Samsung</button>
-      <button class="filter" type="button" data-filter="OnePlus" aria-pressed="false">OnePlus</button>
-      <button class="filter" type="button" data-filter="Pixel" aria-pressed="false">Pixel</button>
-      <button class="filter" type="button" data-filter="Xiaomi" aria-pressed="false">Xiaomi</button>
-      <button class="filter" type="button" data-filter="Clear" aria-pressed="false">Clear</button>
-      <button class="filter" type="button" data-filter="Shockproof" aria-pressed="false">Shockproof</button>
-      <button class="filter" type="button" data-filter="Silicone" aria-pressed="false">Silicone</button>
-      <button class="filter" type="button" data-filter="MagSafe" aria-pressed="false">MagSafe</button>
-    </div>
+    <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
   </section>
 
   <section class="section">
     <div class="active-filters" id="activeFilters"></div>
-    <p class="note sample-note">The listings below are sample entries that show how products are displayed. They are not confirmed stock, and pricing is quoted by FIXON.</p>
     <div class="shop-top">
-      <span id="resultCount" role="status">Loading items…</span>
-      <label class="sort-label">Sort
-        <select id="sortSelect">
-          <option value="featured">Featured</option>
-          <option value="name">Name A–Z</option>
-        </select>
-      </label>
+      <div class="shop-tally">
+        <span id="resultCount" role="status">Loading items…</span>
+        <span class="catalog-status" id="catalogStatus"></span>
+      </div>
+      <div class="shop-tools">
+        <label class="sort-label">Sort
+          <select id="sortSelect">
+            <option value="featured">Featured first</option>
+            <option value="name">Name A–Z</option>
+            <option value="price-asc">Price low to high</option>
+            <option value="price-desc">Price high to low</option>
+          </select>
+        </label>
+        <button class="btn btn-sm btn-ghost" id="refreshBtn" type="button">Refresh list</button>
+      </div>
     </div>
-    <noscript><p class="note">This list is built by <code>js/products.js</code>. With scripts off, message FIXON the device model and we will confirm fit and price.</p></noscript>
+
+    <div class="catalog-loading" id="catalogLoading" role="status">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>Reading the shop catalogue…</span>
+    </div>
+
+    <div class="catalog-state catalog-problem" id="catalogProblem" role="alert" hidden></div>
+    <div class="catalog-state" id="catalogEmpty" hidden></div>
+
+    <noscript><p class="note">This list is built by <code>js/shop.js</code> from the shop's spreadsheet. With scripts off, message FIXON the device model and we will confirm fit and price.</p></noscript>
     <div class="product-grid" id="productGrid"></div>
+
+    <p class="note catalog-hint">Prices shown come from the shop's own list and are confirmed at the counter. Unpriced items are not free or out of stock - just ask, and FIXON will quote the current figure.</p>
+    <div class="catalog-notes" id="catalogNotes" hidden></div>
+
     <div class="hero-actions" style="margin-top:40px">
-      <a class="btn btn-primary" href="cart.html">Review my enquiry list</a>
-      <a class="btn btn-whatsapp" data-fixon-wa="accessory" data-fixon-token-category="phone covers" href="#">Ask about a cover</a>
-      <a class="btn btn-secondary" href="accessories.html">All accessories</a>
+      <a class="btn btn-whatsapp" data-fixon-wa="accessory" data-fixon-token-category="accessories" href="#">Ask about an item</a>
+      <a class="btn btn-secondary" href="accessories.html">Browse by category</a>
+      <a class="btn btn-outline" href="services.html">See counter services</a>
     </div>
   </section>
 </main>
+
+<div class="dialog" id="productDialog" hidden></div>
 
 <footer class="footer">
   <div>
@@ -116,18 +131,17 @@
   </div>
   <div>
     <b>Explore</b>
+    <a href="shop.html">All Products</a>
+    <a href="accessories.html">Categories</a>
     <a href="services.html">Services</a>
     <a href="repairs.html">Repairs</a>
-    <a href="accessories.html">Accessories</a>
     <a href="brands.html">Find by Device</a>
-    <a href="shop.html">Shop Covers</a>
     <a href="about.html">About</a>
   </div>
   <div>
     <b>Support</b>
     <a href="booking.html">Book Repair</a>
     <a href="contact.html">Contact</a>
-    <a href="cart.html">My Enquiry List</a>
     <a href="contact.html#faq">Questions</a>
   </div>
   <div>
@@ -153,7 +167,9 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/config.js"></script>
+<script src="js/catalog.js"></script>
 <script src="js/products.js"></script>
 <script src="js/app.js"></script>
+<script src="js/shop.js"></script>
 </body>
 </html>

@@ -8,44 +8,7 @@
 
   var U = window.fixonUtils;
   var CFG = window.FIXON;
-  var CART_KEY = "fixon_cart";
   var UNSET_LABEL = "Not set - edit js/config.js";
-
-  /* ------------------------------------------------------------------ *
-   * Cart (localStorage) - public API reused by products.js / cart.js
-   * ------------------------------------------------------------------ */
-  function getCart() {
-    try {
-      var raw = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
-      return Array.isArray(raw) ? raw : [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  function saveCart(cart) {
-    try {
-      localStorage.setItem(CART_KEY, JSON.stringify(cart));
-    } catch (e) { /* storage unavailable: cart simply won't persist */ }
-    updateCartCount();
-  }
-
-  function updateCartCount() {
-    var n = getCart().reduce(function (s, i) { return s + (i.qty || 0); }, 0);
-    document.querySelectorAll("#cartCount").forEach(function (el) { el.textContent = n; });
-  }
-
-  function addToCart(id) {
-    if (typeof products === "undefined") return;
-    var p = products.find(function (x) { return x.id === id; });
-    if (!p) return;
-    var cart = getCart();
-    var hit = cart.find(function (x) { return x.id === id; });
-    if (hit) hit.qty += 1;
-    else cart.push({ id: p.id, name: p.name, brand: p.brand, model: p.model, category: p.category, price: U.formatPrice(p.price) || "", qty: 1 });
-    saveCart(cart);
-    showToast(p.name + " added to cart", "success");
-  }
 
   /* ------------------------------------------------------------------ *
    * Toast
@@ -519,75 +482,71 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Shop grid: search / brand filter / sort
+   * Share metadata (og:url, og:image, canonical)
+   * ------------------------------------------------------------------ *
+   * These stay empty until FIXON.share carries a real value, because a wrong
+   * canonical or share image is worse than none: crawlers cache it and the
+   * owner only finds out weeks later. Fill FIXON.share in js/config.js once
+   * the site has a domain, and the tags write themselves on every page.
    * ------------------------------------------------------------------ */
-  function initShop() {
-    var grid = document.getElementById("productGrid");
-    if (!grid || typeof products === "undefined") return;
-    var params = new URLSearchParams(location.search);
-    var fromBrand = (params.get("brand") || "").trim();
-    var fromModel = (params.get("model") || "").trim();
-    var current = fromBrand || "All";
-    var search = document.getElementById("searchInput");
-    /* A model picked on models.html simply becomes search text: one filter
-       path serves both the free-text box and the deep link. */
-    if (search && fromModel) search.value = fromModel;
+  function initShareMeta() {
+    var share = CFG.share || {};
 
-    function activeFilters() {
-      var bar = document.getElementById("activeFilters");
-      if (!bar) return;
-      if (!fromBrand && !fromModel) { bar.innerHTML = ""; return; }
-      var bits = [];
-      if (fromBrand) bits.push('<span class="af-chip">Brand <b>' + fromBrand + "</b></span>");
-      if (fromModel) bits.push('<span class="af-chip">Series <b>' + fromModel + "</b></span>");
-      bits.push('<a class="af-clear" href="shop.html">Clear filters ×</a>');
-      bar.innerHTML = bits.join("");
-    }
-
-    function render() {
-      var q = (search || {}).value || "";
-      q = q.toLowerCase().trim();
-      var list = products.filter(function (p) {
-        var matchCat = current === "All" || p.category === current || p.brand === current;
-        var haystack = (p.name + " " + p.brand + " " + p.model + " " + p.category + " " + (p.tags || []).join(" ")).toLowerCase();
-        return matchCat && (!q || haystack.indexOf(q) !== -1);
-      });
-      var sort = (document.getElementById("sortSelect") || {}).value;
-      if (sort === "name") list.sort(function (a, b) { return a.name.localeCompare(b.name); });
-      var count = document.getElementById("resultCount");
-      if (count) count.textContent = list.length + (list.length === 1 ? " item" : " items");
-      renderProducts(list, "productGrid");
-      if (!list.length) {
-        var empty = grid.querySelector(".empty-state");
-        if (empty) {
-          empty.innerHTML = "<h3>No listing tagged that yet</h3>" +
-            "<p>FIXON stocks more than this page shows. Send the exact device and we will confirm fit and price.</p>" +
-            '<a class="btn btn-sm btn-whatsapp" data-fixon-wa="accessory" data-fixon-token-category="a cover for ' + (fromModel || fromBrand || "my phone") + '" href="#">Ask on WhatsApp</a>';
-          hydrate();
-        }
-      }
-    }
-
-    document.querySelectorAll(".filter").forEach(function (btn) {
-      if (btn.dataset.filter === current) {
-        document.querySelectorAll(".filter").forEach(function (x) { x.classList.remove("active"); x.setAttribute("aria-pressed", "false"); });
-        btn.classList.add("active");
-        btn.setAttribute("aria-pressed", "true");
-      }
-      btn.addEventListener("click", function () {
-        document.querySelectorAll(".filter").forEach(function (x) { x.classList.remove("active"); });
-        btn.classList.add("active");
-        btn.setAttribute("aria-pressed", "true");
-        document.querySelectorAll(".filter").forEach(function (x) { if (x !== btn) x.setAttribute("aria-pressed", "false"); });
-        current = btn.dataset.filter;
-        render();
-      });
+    document.querySelectorAll("[data-fixon-og]").forEach(function (meta) {
+      var which = meta.getAttribute("data-fixon-og");
+      var value = which === "url" ? share.url : which === "image" ? share.image : "";
+      if (U.isSet(value)) meta.setAttribute("content", value);
+      else if (meta.parentNode) meta.parentNode.removeChild(meta);
     });
-    if (search) search.addEventListener("input", render);
-    var select = document.getElementById("sortSelect");
-    if (select) select.addEventListener("change", render);
-    activeFilters();
-    render();
+
+    if (U.isSet(share.url)) {
+      var canonical = document.querySelector('link[rel="canonical"]');
+      if (!canonical) {
+        canonical = document.createElement("link");
+        canonical.rel = "canonical";
+        document.head.appendChild(canonical);
+      }
+      canonical.href = share.url + location.pathname.replace(/index\.html$/, "");
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Featured strip (index.html + accessories.html)
+   * ------------------------------------------------------------------ *
+   * Only rows the owner marked "featured" in the sheet appear here. When the
+   * sheet has no featured column the strip's own "empty" note stays, so the
+   * page never promotes an arbitrary product to featured.
+   * ------------------------------------------------------------------ */
+  function initFeatured() {
+    var host = document.getElementById("featuredProducts");
+    if (!host || typeof window.renderProducts !== "function") return;
+    var C = window.fixonCatalog;
+    if (!C) return;
+
+    function paint(snapshot) {
+      var list = C.featured(3);
+      if (!list.length && (snapshot.status === "loading" || snapshot.status === "idle")) {
+        if (!host.childElementCount) host.appendChild(elFromText("p", "note featured-empty", "Loading listings…"));
+        return;
+      }
+      host.innerHTML = "";
+      if (list.length) { renderProducts(list, "featuredProducts"); return; }
+      var failed = snapshot.status === "error" || snapshot.status === "unset";
+      host.appendChild(elFromText(
+        "p", "note featured-empty",
+        failed ? "The listing feed is unavailable right now, so nothing is highlighted."
+               : "This section shows the items the shop marks as featured."
+      ));
+    }
+
+    if (typeof C.onReady === "function") C.onReady(paint); else paint(C.status());
+  }
+
+  function elFromText(tag, className, text) {
+    var node = document.createElement(tag);
+    node.className = className;
+    node.textContent = text;
+    return node;
   }
 
   /* Photo slots degrade to the neutral render instead of a broken icon. The
@@ -607,40 +566,26 @@
    * ------------------------------------------------------------------ */
   document.addEventListener("DOMContentLoaded", function () {
     if (document.querySelector(".mobile-bar")) document.body.classList.add("has-bar");
-    updateCartCount();
     hydrate();
+    initShareMeta();
     initPhotoFallback();
     initThemeButton();
     initNav();
     initScrollUI();
     initFaq();
     initMap();
-    initShop();
+    initFeatured();
     initBanners();
     initBeforeAfter();
     injectStructuredData();
     initReveal();
     wireDisabled();
 
-    if (document.getElementById("featuredProducts") && typeof renderProducts === "function") {
-      renderProducts(products.slice(0, 3), "featuredProducts");
-    }
     /* Quick-service shortcuts + wizard chips are generated from config */
     document.dispatchEvent(new CustomEvent("fixon:ready"));
   });
 
   window.fixonHydrate = hydrate;
   window.fixonUtils.hydrate = hydrate;
-  window.fixonCart = {
-    get: getCart, save: saveCart, add: addToCart, count: updateCartCount,
-    /* Order text for the WhatsApp handoff - no fake totals, just the list */
-    describe: function () {
-      return getCart().map(function (i) {
-        return "- " + i.name + " (" + i.model + ") x" + i.qty + (i.price ? " @ " + i.price : "");
-      }).join("\n");
-    },
-    clear: function () { saveCart([]); }
-  };
   window.showToast = showToast;
-  window.addToCart = addToCart; /* used by the product cards rendered in products.js */
 })();

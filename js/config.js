@@ -7,6 +7,11 @@
  * Any value still set to a "SET_ME_*" sentinel is treated as NOT configured:
  * buttons that depend on it are disabled with an explanatory toast instead
  * of sending the visitor to a fake number or an empty map.
+ *
+ * PRODUCT DATA IS NOT IN THIS FILE ANY MORE.
+ * Products come from a spreadsheet the shop owner edits - see section 10 and
+ * GOOGLE-SHEETS.md. Prices, descriptions, images and categories in this file
+ * are never invented: a price only appears when the sheet supplies one.
  */
 (function () {
   var PLACEHOLDER = /^SET_ME/;
@@ -17,9 +22,20 @@
      * ------------------------------------------------------------------ */
     name: "FIXON",
     tagline: "Mobile Repair, Services & Accessories",
-    heroHeadline: "Your Phone. Fixed Right.",
+    /* The words below feed the share card and the structured data. The big
+     * headline a visitor sees is written in index.html and accessories.html,
+     * because it is split across lines and styled per word. Keep them in step
+     * if you change one. */
+    heroHeadline: "Everything Your Phone Needs.",
     heroSupport:
-      "Professional smartphone repair, diagnostics and accessories for Android and iPhone.",
+      "Explore quality mobile accessories and everyday mobile services.",
+
+    /* Social sharing. Set both to the live values once the site has a domain:
+     * share.url  = the exact page address, e.g. "https://fixon.example/"
+     * share.image = a full https:// link to a 1200x630 picture.
+     * Left as sentinels, the matching <meta> tags stay out of the HTML rather
+     * than pointing at a URL that does not exist yet. */
+    share: { url: "SET_ME_SITE_URL", image: "SET_ME_SHARE_IMAGE_URL" },
 
     /* ------------------------------------------------------------------ *
      * 2. CONTACT - TODO: replace every SET_ME_* value with real data
@@ -63,10 +79,9 @@
         "Hi {shop}, I need help with my {device} phone. The issue is {problem}. I would like to know about the repair.",
       service: "Hi {shop}, I am interested in the {service} service. Could you guide me?",
       accessory: "Hi {shop}, I am interested in {category}. Is it available?",
-      cover: "Hi {shop}, I like the {product} cover for {model}. Do you have it in stock?",
+      product: "Hi {shop}, I am interested in {product}. Could you tell me if it suits my phone and what it costs?",
       booking:
         "Hi {shop}, I want to book a repair.\n\nName: {customer}\nPhone: {phone}\nDevice: {brand} {model}\nService: {service}\nPreferred: {date} at {time}\nIssue: {issue}",
-      cart: "Hi {shop}, I would like to order these items:\n{items}",
       contact:
         "Hi {shop}, I have a question about {topic}.\n\n{message}\n\n- {customer} ({contact})"
     },
@@ -118,27 +133,26 @@
       { id: "Diagnostics", icon: "⌖", blurb: "Identify device problems before repair." }
     ],
 
-    accessoryCategories: [
-      "Phone Covers",
-      "Tempered Glass",
-      "Chargers",
-      "Cables",
-      "Power Adapters",
-      "Earphones",
-      "TWS",
-      "Car Chargers",
-      "Phone Stands"
-    ],
-
-    coverStyles: [
-      "Clear",
-      "Shockproof",
-      "Silicone",
-      "MagSafe",
-      "Printed",
-      "Premium",
-      "Minimal",
-      "Custom"
+    /* ------------------------------------------------------------------ *
+     * 7. PRODUCT CATEGORIES (accessories.html -> "Categories")
+     * "id" is the slug the shop filter and the photo file use; "match"
+     * lists the words a spreadsheet may put in its category column and
+     * still count as this category (compared lower-case, as substrings).
+     * A category with no live products renders as "not listed yet" instead
+     * of disappearing, so the grid stays honest about what is on the sheet.
+     * ------------------------------------------------------------------ */
+    productCategories: [
+      { id: "cases", label: "Cases & Covers", photo: "phone-covers", match: ["case", "cover", "back cover", "guard"], blurb: "Clear, shockproof, silicone, printed and premium covers for the model you carry." },
+      { id: "protectors", label: "Tempered Glass & Protectors", photo: "tempered-glass", match: ["tempered", "glass", "protector", "screen guard"], blurb: "Screen protection fitted to your model, aligned and bubble-free." },
+      { id: "chargers", label: "Chargers & Adapters", photo: "chargers", match: ["charger", "adapter", "brick", "wall plug"], blurb: "Wall chargers and multi-port bricks matched to your device's charging standard." },
+      { id: "cables", label: "USB & Charging Cables", photo: "cables", match: ["cable", "usb", "lightning", "micro-usb"], blurb: "USB-C, Lightning and Micro-USB cables - the most common cause of slow charging." },
+      { id: "power-banks", label: "Power Banks", photo: "power-banks", match: ["power bank", "powerbank", "battery pack"], blurb: "Portable battery packs for travel, counted at the counter before you buy." },
+      { id: "audio", label: "Earphones & TWS", photo: "earphones", match: ["earphone", "earpod", "tws", "headphone", "buds", "audio"], blurb: "Wired earphones and true wireless buds, with pairing and fit checked first." },
+      { id: "speakers", label: "Bluetooth Speakers", photo: "bluetooth-speakers", match: ["speaker", "bluetooth speaker", "soundbox"], blurb: "Portable speakers for calls, music and video, tested at the counter." },
+      { id: "wearables", label: "Smartwatches & Wearables", photo: "smartwatches", match: ["watch", "band", "fitness", "wearable"], blurb: "Smart bands and watches, plus straps and chargers for the ones you own." },
+      { id: "stands", label: "Stands & Holders", photo: "phone-stands", match: ["stand", "holder", "mount", "tripod"], blurb: "Desk stands, car mounts and holders for hands-free viewing." },
+      { id: "storage", label: "Memory Cards & Storage", photo: "memory-cards", match: ["memory card", "sd card", "microsd", "pendrive", "otg"], blurb: "Memory cards and OTG storage, format-checked before they leave the shop." },
+      { id: "other", label: "Other Accessories", photo: "other", match: ["other", "misc", "general"], blurb: "Cable protectors, SIM tools, cleaning kits and everything else at the counter." }
     ],
 
     bookingTimes: ["10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"],
@@ -177,9 +191,9 @@
 
     /* ------------------------------------------------------------------ *
      * 8. SHOP DISPLAY
-     * Prices are business facts, so none are set. A listing shows its price
-     * only when a numeric "price" is added to it in js/products.js; until
-     * then cards keep showing "Price on request".
+     * Prices are business facts, so none are written in code. A listing shows
+     * a price only when its spreadsheet row supplies a number; until then the
+     * card keeps showing the text below. See section 10 and GOOGLE-SHEETS.md.
      * ------------------------------------------------------------------ */
     currencySymbol: "₹", // shown before a configured price
     priceNote: "Price on request",
@@ -194,13 +208,74 @@
       { id: "screen", kicker: "SCREEN REPAIR", title: "Cracked display?", text: "Bring the phone in - we diagnose it first, then quote before any work starts.", cta: "Book a screen repair", href: "booking.html?service=Screen%20Replacement" },
       { id: "covers", kicker: "COVERS & GLASS", title: "Protect what you fixed", text: "Covers, tempered glass and chargers for the model you actually carry.", cta: "Browse covers", href: "brands.html" },
       { id: "tools", kicker: "REPAIR TOOLS", title: "Workshop parts, checked on the bench", text: "Ask FIXON what is in hand for your device before you order anything online.", cta: "Talk to FIXON", href: "contact.html" }
-    ]
+    ],
+
+    /* ------------------------------------------------------------------ *
+     * 10. CATALOG SOURCE - the shop owner's spreadsheet
+     * ------------------------------------------------------------------
+     * Products and their prices live in a spreadsheet, NOT in code, so the
+     * owner can add, edit, activate or hide an item without a developer.
+     *
+     *   csvUrl           ONE public CSV address. Either a Google Sheet
+     *                    published to the web as CSV (see GOOGLE-SHEETS.md)
+     *                    or any other https:// file that serves plain CSV
+     *                    with Access-Control-Allow-Origin: *.
+     *                    Leave it as SET_ME_PUBLISHED_CSV_URL and the shop
+     *                    pages politely say the catalogue is not online yet -
+     *                    nothing is invented to fill the grid.
+     *   localFallback    A CSV inside this site, read when csvUrl is not set
+     *                    or fails. Empty by default. Excel/OneDrive owners can
+     *                    use it without any Google account: File -> Save a
+     *                    Copy -> CSV, upload as data/catalog.csv, then set
+     *                    this line to "data/catalog.csv".
+     *   servicesCsvUrl   Optional second sheet for services (same columns, plus
+     *                    an "icon" column is ignored). Leave "" to use the
+     *                    FIXON.services and FIXON.counterServices lists below.
+     *   refreshMinutes   How often an open page re-reads the sheet. Google's
+     *                    published CSV itself can lag several minutes behind an
+     *                    edit, so the site never claims real-time updates.
+     *
+     * REQUIRED COLUMNS (header row, any order):
+     *   name, price, description, image, category, active
+     * OPTIONAL COLUMNS:
+     *   featured  (TRUE shows it in the featured strip)
+     *   brand     (device brand, keeps brands.html / models.html deep links)
+     *   model     (device series or model, same reason)
+     *   url       (link to a product page the shop wants to send people to)
+     *
+     * Only rows whose "active" column is TRUE are displayed.
+     * NEVER PUT CUSTOMER DATA, ORDER NOTES OR PRIVATE KEYS IN THIS SHEET: a
+     * published CSV is readable by anyone who has the link and search engines
+     * may index it. There is no place for service-account credentials or API
+     * keys in frontend code, and this site needs none.
+     * ------------------------------------------------------------------ */
+    catalog: {
+      csvUrl: "https://1drv.ms/x/c/61aaf347c72c2bb5/IQDt3GQe8cUCRLt0u9sArH2uAc8MkRF-tE1aEnZ9efmQtuM?e=amkxgY",
+      localFallback: "",
+      servicesCsvUrl: "",
+      refreshMinutes: 30
+    },
+
+    /* ------------------------------------------------------------------ *
+     * 11. COUNTER SERVICES (services.html)
+     * Fitting and help services, kept apart from the repair jobs in section
+     * 6 so visitors can tell a repair from a fitting. No price is set here
+     * because that is the shop's to state; "price: null" hides the price
+     * line entirely. Add or delete entries to match what the shop does.
+     * ------------------------------------------------------------------ */
+    counterServices: [
+      { id: "Screen Protector Installation", price: null, photo: "tempered-glass", blurb: "Alignment, dust-off and bubble-free fitting, on the glass you buy here or bring in." },
+      { id: "Accessories Fitting", price: null, photo: "phone-covers", blurb: "Covers, mounts, cables and chargers fitted and tested at the counter before you leave." },
+      { id: "Mobile Cleaning & Maintenance", price: null, photo: "cleaning", blurb: "Port and speaker lint cleared, screen sanitised, case check - useful every few months." },
+      { id: "Phone Setup Assistance", price: null, photo: "data", blurb: "New phone setup, accounts, transfers, permissions and settings done with you." }
+    ],
 
     /* NOTE on honesty:
      * This file deliberately contains no repair prices, no review scores,
      * no repair counts and no warranty promises. Those are business facts
-     * only FIXON can confirm. Add them here once they are real, then render
-     * them from the same place.
+     * only FIXON can confirm. Product prices are the same kind of fact, so
+     * they live in the owner's spreadsheet and stay hidden until a row
+     * supplies one.
      */
   };
 

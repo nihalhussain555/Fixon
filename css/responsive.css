@@ -30,9 +30,6 @@
   .hero-actions, .hero-trust { justify-content: center; }
   .hero-visual { height: 480px; margin-top: 8px; }
   .split-section { grid-template-columns: 1fr; gap: var(--s-5); padding: var(--s-7) var(--gutter); }
-  .booking-wrap, .contact-grid, .cart-layout { grid-template-columns: 1fr; }
-  .cart-layout { grid-template-columns: 1fr; }
-  .summary { position: static; }
   .footer { grid-template-columns: repeat(2, 1fr); }
   .service-grid-large, .service-grid { grid-template-columns: repeat(2, 1fr); }
   .product-grid, .accessory-grid { grid-template-columns: repeat(2, 1fr); }
@@ -112,12 +109,14 @@
   .timeline-step { padding: 14px 0 14px 40px; border-left: 2px solid var(--line); margin-left: 11px; }
   .timeline-step::before { top: 14px; left: -13px; }
   .process-grid { grid-template-columns: 1fr 1fr; }
-  .booking-wrap, .contact-grid, .cart-layout { padding: var(--s-6) var(--gutter); }
   .form-row { grid-template-columns: 1fr; gap: 0; }
+  /* Product dialog: one column, image first, everything scrollable. */
+  .dialog { padding: 10px; }
+  .dialog-body { grid-template-columns: 1fr; gap: var(--s-3); padding: var(--s-3); }
+  .dialog-photo { max-width: 280px; }
+  .shop-tools { width: 100%; justify-content: space-between; }
+  .catalog-state { padding: var(--s-4); }
   .form-card { padding: var(--s-4); }
-  .cart-item { flex-wrap: wrap; }
-  .cart-details { min-width: calc(100% - 100px); }
-  .qty { margin-left: 98px; }
   .footer { grid-template-columns: 1fr 1fr; padding: var(--s-7) var(--gutter) var(--s-5); }
   .footer-bottom { grid-column: 1 / -1; }
   .map-frame iframe { height: 300px; }
@@ -141,7 +140,6 @@
   .device-panel div { height: 160px; font-size: 2.6rem; }
   .btn { padding: 13px 17px; font-size: .9rem; }
   .header { gap: 8px; }
-  .cart-btn { padding: 8px 10px; }
   .icon-btn { padding: 8px 10px; }
 }
 
@@ -171,10 +169,6 @@
   .phone { width: 178px; height: 356px; }
   .quick-grid { grid-template-columns: repeat(2, 1fr); }
   .mobile-bar .btn { font-size: .74rem; padding: 11px 4px; letter-spacing: -.01em; }
-  .cart-item { gap: 10px; padding: 12px; }
-  .cart-thumb { width: 62px; height: 76px; }
-  .cart-details { min-width: calc(100% - 78px); }
-  .qty { margin-left: 78px; }
 }
 
 /* Very short viewports (landscape phones): shrink the phone mockup */
