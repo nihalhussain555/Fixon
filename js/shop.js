@@ -426,6 +426,14 @@
       "This description comes from the shop's own list. Fit and stock are confirmed on WhatsApp or at the counter before any payment."));
 
     var actions = el("div", "dialog-actions");
+    var add = el("button", "btn btn-sm btn-primary", "Add to order");
+    add.type = "button";
+    add.setAttribute("data-add", product.id);
+    add.addEventListener("click", function () {
+      if (window.fixonOrder) window.fixonOrder.add(product.id);
+    });
+    actions.appendChild(add);
+
     var waHref = U.whatsappUrl("product", {
       product: product.name + (fitment.length ? " (" + fitment.join(" · ") + ")" : "")
     });
@@ -460,6 +468,9 @@
     body.appendChild(text);
     panel.appendChild(body);
     box.appendChild(panel);
+    /* The dialog's own Add button needs the same "On your list (n)" label the
+       cards use, and it is already in the document by now. */
+    if (typeof window.fixonSyncOrderButtons === "function") window.fixonSyncOrderButtons(box);
     box.hidden = false;
     document.body.classList.add("dialog-open");
     panel.focus();

@@ -511,12 +511,29 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Featured strip (index.html + accessories.html)
+   * Shop strip (index.html + accessories.html)
    * ------------------------------------------------------------------ *
-   * Only rows the owner marked "featured" in the sheet appear here. When the
-   * sheet has no featured column the strip's own "empty" note stays, so the
-   * page never promotes an arbitrary product to featured.
+   * Rows the owner marked "featured" lead, then the rest of the shop's own
+   * list in the order the sheet holds them, up to STRIP_LIMIT cards. Every
+   * card is still a real row from the owner's file: nothing here invents a
+   * listing, calls one popular or promotes a made-up price. An empty file
+   * gets the plain note below instead of a filler product.
    * ------------------------------------------------------------------ */
+  var STRIP_LIMIT = 6;
+
+  function stripPicks(C) {
+    var out = C.featured(STRIP_LIMIT);
+    var seen = {};
+    out.forEach(function (p) { seen[p.id] = true; });
+    var rows = typeof C.rows === "function" ? C.rows() : [];
+    for (var i = 0; i < rows.length && out.length < STRIP_LIMIT; i++) {
+      if (seen[rows[i].id]) continue;
+      seen[rows[i].id] = true;
+      out.push(rows[i]);
+    }
+    return out;
+  }
+
   function initFeatured() {
     var host = document.getElementById("featuredProducts");
     if (!host || typeof window.renderProducts !== "function") return;
@@ -524,7 +541,7 @@
     if (!C) return;
 
     function paint(snapshot) {
-      var list = C.featured(3);
+      var list = stripPicks(C);
       if (!list.length && (snapshot.status === "loading" || snapshot.status === "idle")) {
         if (!host.childElementCount) host.appendChild(elFromText("p", "note featured-empty", "Loading listings…"));
         return;
@@ -534,8 +551,8 @@
       var failed = snapshot.status === "error" || snapshot.status === "unset";
       host.appendChild(elFromText(
         "p", "note featured-empty",
-        failed ? "The listing feed is unavailable right now, so nothing is highlighted."
-               : "This section shows the items the shop marks as featured."
+        failed ? "The shop's listing file is unavailable right now, so there is nothing to show."
+               : "FIXON has not published any listings yet. Rows added to the shop list appear here."
       ));
     }
 

@@ -49,6 +49,7 @@
       <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
       <a class="btn btn-sm btn-primary" href="booking.html">Book Repair</a>
     </div>
+    <button class="order-btn" id="orderBtn" type="button" aria-expanded="false" aria-controls="orderDrawer" aria-label="Order list, empty"><span class="order-label" aria-hidden="true">Order list</span><span class="order-count" aria-hidden="true">0</span></button>
     <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☼</button>
     <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu" title="Menu"><i></i><i></i><i></i></button>
   </div>
@@ -102,27 +103,47 @@
           <input name="name" type="text" autocomplete="name" placeholder="Your name" required>
         </label>
         <label>Phone or email
-          <input name="contact" type="text" autocomplete="tel" placeholder="How should FIXON reply?" required>
+          <input name="contact" type="text" inputmode="email" autocomplete="tel email" placeholder="How should FIXON reply?" required>
         </label>
       </div>
-      <label>Topic
-        <select id="contactTopic" name="topic">
-          <option>Repair question</option>
-          <option>Accessory or cover</option>
-          <option>Quote or booking</option>
-          <option>Data transfer</option>
-          <option>Something else</option>
-        </select>
+
+      <label>What do you need?
+        <select id="contactTopic" name="topic"></select>
       </label>
+
+      <div class="form-row">
+        <label>Device brand
+          <select id="contactBrand" name="brand"></select>
+        </label>
+        <label>Device model
+          <input id="contactModel" name="model" type="text" list="modelSuggestions" placeholder="e.g. iPhone 13, Galaxy A54">
+          <datalist id="modelSuggestions"></datalist>
+        </label>
+      </div>
+
+      <label>Best time to reply
+        <select id="contactWhen" name="when"></select>
+      </label>
+
       <label>Message
-        <textarea name="message" rows="6" placeholder="What do you need help with?" required></textarea>
+        <textarea name="message" rows="6" placeholder="What is the device doing, or what are you after? The model and the fault are the two things that speed a reply up." required></textarea>
       </label>
+
       <div class="form-actions">
         <button class="btn btn-primary full" type="submit">Send Message</button>
-        <a class="btn btn-whatsapp full" id="contactWhatsBtn" href="#">Send on WhatsApp Instead</a>
+        <button class="btn btn-whatsapp full" type="button" id="contactWhatsBtn">Send on WhatsApp Instead</button>
+        <button class="btn btn-secondary full" type="button" id="contactCopyBtn">Copy the message text</button>
       </div>
       <div class="form-status" id="contactStatus" aria-live="polite"></div>
-      <p class="form-note">This form has no backend yet: your message is prepared on this device and opened in WhatsApp, or you can copy it. It is not received by FIXON until you send it.</p>
+
+      <div id="contactPreviewBox" hidden>
+        <label>Your message, ready to send
+          <textarea id="contactPreview" rows="7" readonly></textarea>
+        </label>
+        <p class="form-note" style="text-align:left">Review the text above. Nothing reaches FIXON until you send it.</p>
+      </div>
+
+      <p class="form-note">This form has no backend: your message is prepared on this device and opened in WhatsApp, or you can copy it. It is not received by FIXON until you send it yourself.</p>
     </form>
   </section>
 
@@ -202,10 +223,13 @@
   <a class="btn btn-sm btn-primary" href="booking.html">Book</a>
 </div>
 <button class="back-top" type="button" aria-label="Back to top" aria-hidden="true">↑</button>
+<aside class="order-drawer" id="orderDrawer" role="dialog" aria-labelledby="orderTitle" hidden></aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/config.js"></script>
+<script src="js/catalog.js"></script>
 <script src="js/products.js"></script>
+<script src="js/order.js"></script>
 <script src="js/app.js"></script>
 <script src="js/contact.js"></script>
 </body>

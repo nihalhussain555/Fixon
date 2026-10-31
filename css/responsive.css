@@ -11,6 +11,15 @@
   .hero { min-height: 700px; }
 }
 
+/* Below this the header has logo + 7 links + 3 CTAs + order + theme, so the
+   order control drops to a short word. It keeps its full label on 1440/1920
+   where there is room for it. */
+@media (max-width:1200px) {
+  .order-btn { padding: 0 10px; }
+  .order-btn .order-label { display: none; }
+  .order-btn::before { content: "Order"; font-weight: 700; }
+}
+
 @media (max-width:1200px) {
   .quick-grid { grid-template-columns: repeat(4, 1fr); }
   .why-grid { grid-template-columns: repeat(2, 1fr); }
@@ -23,13 +32,15 @@
 @media (max-width:1024px) {
   :root { --header-h: 72px; --gutter: 6%; }
   .nav { gap: 18px; }
-  .header { padding: 0 4%; }
+  .header { padding: 0 4%; gap: var(--s-2); }
+  .header-actions { gap: 8px; }
   .hero { grid-template-columns: 1fr; padding: 52px var(--gutter) 64px; text-align: center; min-height: auto; }
   .hero-copy { display: grid; justify-items: center; }
   .hero-copy > p { margin-inline: auto; }
   .hero-actions, .hero-trust { justify-content: center; }
   .hero-visual { height: 480px; margin-top: 8px; }
   .split-section { grid-template-columns: 1fr; gap: var(--s-5); padding: var(--s-7) var(--gutter); }
+  .booking-wrap, .contact-grid { grid-template-columns: 1fr; }
   .footer { grid-template-columns: repeat(2, 1fr); }
   .service-grid-large, .service-grid { grid-template-columns: repeat(2, 1fr); }
   .product-grid, .accessory-grid { grid-template-columns: repeat(2, 1fr); }
@@ -130,7 +141,24 @@
   .back-top { bottom: calc(var(--bar-h) + 16px); right: 14px; width: 40px; height: 40px; }
   .toast { bottom: calc(var(--bar-h) + 16px); left: 14px; right: 14px; max-width: none; text-align: left; }
   body.has-bar .toast, body.has-bar .back-top { bottom: calc(var(--bar-h) + 16px); }
+  /* Order tray becomes a bottom sheet, parked above the sticky action bar so
+     both stay reachable. */
+  .order-drawer {
+    top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 84vh;
+    border-left: 0; border-top: 1px solid var(--line);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 0 var(--gutter) var(--gutter);
+    animation-name: tray-up;
+  }
+  body.has-bar .order-drawer { bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
+  .order-head { padding-top: var(--s-3); }
+  .order-row { grid-template-columns: 48px 1fr; row-gap: 8px; }
+  .order-thumb { width: 48px; height: 48px; }
+  .order-qty, .qty-drop { grid-column: 2; justify-self: start; }
+  .qty-drop { padding-left: 0; }
 }
+
+@keyframes tray-up { from { transform: translateY(30px); opacity: .35; } to { transform: none; opacity: 1; } }
 
 @media (max-width:560px) {
   .hero-visual { height: 380px; transform: scale(.94); }
@@ -141,6 +169,9 @@
   .btn { padding: 13px 17px; font-size: .9rem; }
   .header { gap: 8px; }
   .icon-btn { padding: 8px 10px; }
+  /* Fingers still reach the tray: only the height tightens here, the short
+     label was already swapped in at 1200px. */
+  .order-btn { height: 38px; font-size: .78rem; }
 }
 
 /* Small phones: no horizontal scroll, no tiny text */
@@ -160,6 +191,7 @@
 /* Fingers need a bigger grab target than a mouse on the before/after slider. */
 @media (pointer: coarse) {
   .ba-knob { width: 40px; height: 40px; }
+  .order-close, .qty-btn, .qty-drop { min-width: 36px; min-height: 36px; }
 }
 
 @media (max-width:380px) {

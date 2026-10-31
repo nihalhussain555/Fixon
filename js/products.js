@@ -12,6 +12,10 @@
    PHOTOS: a row that supplies an image URL uses it as-is. A row without one
    falls back to the category picture in images/accessories/ and is labelled
    "Category illustration", so a stand-in never looks like a real stock photo.
+
+   BUYING: the primary action is "Add to order", which puts the row into the
+   order list js/order.js turns into a WhatsApp message. Nothing on a card ever
+   says bought, booked or in stock - the shop confirms all of that.
    ========================================================================== */
 (function () {
   "use strict";
@@ -81,12 +85,25 @@
     if (p.description) info.appendChild(el("p", "product-excerpt", truncate(p.description, CARD_DESCRIPTION)));
 
     var actions = el("div", "card-actions");
-    var details = el("button", "btn btn-sm btn-secondary", "Details");
-    details.type = "button";
-    details.setAttribute("data-details", p.id);
-    actions.appendChild(details);
 
-    var ask = el("a", "btn btn-sm btn-whatsapp", "Ask on WhatsApp");
+    /* Buying on this site means adding to an order list that is sent to FIXON
+       on WhatsApp, so that is the primary action on a product. */
+    var add = el("button", "btn btn-sm btn-primary", "Add to order");
+    add.type = "button";
+    add.setAttribute("data-add", p.id);
+    actions.appendChild(add);
+
+    /* Details opens the dialog built by js/shop.js, and that dialog only exists
+       on a page carrying #productDialog. Without it the button would sit there
+       doing nothing, so it is not rendered at all. */
+    if (document.getElementById("productDialog")) {
+      var details = el("button", "btn btn-sm btn-secondary", "Details");
+      details.type = "button";
+      details.setAttribute("data-details", p.id);
+      actions.appendChild(details);
+    }
+
+    var ask = el("a", "wa-mini", "Ask on WhatsApp");
     ask.href = "#";
     ask.setAttribute("data-product-wa", p.id);
     actions.appendChild(ask);
@@ -103,6 +120,29 @@
     return card;
   }
 
+  /* ------------------------------------------------------------------ *
+   * The order button reflects the tray: "Add to order" until the item is on
+   * the list, then the quantity already there. js/order.js fires
+   * fixon:order whenever the list changes.
+   * ------------------------------------------------------------------ */
+  function syncAddButtons(root) {
+    var host = root || document;
+    var order = window.fixonOrder;
+    host.querySelectorAll("[data-add]").forEach(function (button) {
+      var qty = order ? order.countFor(button.getAttribute("data-add")) : 0;
+      button.classList.toggle("in-order", qty > 0);
+      button.textContent = qty > 0 ? "On your list (" + qty + ")" : "Add to order";
+      if (!order) {
+        button.classList.add("is-unconfigured");
+        button.title = "js/order.js is not loaded on this page";
+      } else if (qty === 0) {
+        button.title = "Adds one to your order list. Nothing is sent or booked until you press Send.";
+      } else {
+        button.title = "Adds one more. Change the quantity in your order list.";
+      }
+    });
+  }
+
   /* targetId kept for the call sites in app.js and shop.js. */
   function renderProducts(list, targetId) {
     var container = document.getElementById(targetId);
@@ -117,6 +157,15 @@
   function fixonBindProducts(list, container) {
     var byId = {};
     list.forEach(function (p) { byId[p.id] = p; });
+
+    container.querySelectorAll("[data-add]").forEach(function (button) {
+      var id = button.getAttribute("data-add");
+      if (!byId[id]) return;
+      button.addEventListener("click", function () {
+        if (window.fixonOrder) window.fixonOrder.add(id);
+      });
+    });
+    syncAddButtons(container);
 
     container.querySelectorAll("[data-details]").forEach(function (button) {
       var product = byId[button.getAttribute("data-details")];
@@ -157,7 +206,11 @@
     }
   }
 
+  /* This file is loaded once per page, so one listener covers every grid. */
+  document.addEventListener("fixon:order", function () { syncAddButtons(document); });
+
   window.renderProducts = renderProducts;
   window.fixonBindProducts = fixonBindProducts;
   window.fixonProductCard = buildCard;
+  window.fixonSyncOrderButtons = syncAddButtons;
 })();

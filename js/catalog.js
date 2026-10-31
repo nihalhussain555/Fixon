@@ -240,7 +240,6 @@
     return {
       note: note,
       product: {
-        id: "r" + line,
         name: name,
         description: clip(cell(row, map, "description"), 800),
         priceText: priceText,
@@ -268,6 +267,22 @@
     return null;
   }
 
+  /* The order list in js/order.js lives on the visitor's device between visits,
+     so a product needs an id that survives the owner editing the sheet. "Row 6"
+     would point at a different product the moment a row is inserted or the rows
+     are re-sorted, and the order would silently ask for the wrong thing. The
+     name is the column the owner expects to be meaningful, so it is the key;
+     two rows with the same name get -2, -3 on the second and third. */
+  function rowKey(name, line, used) {
+    var slug = String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
+    var stem = "p-" + (slug || "row" + line);
+    var id = stem;
+    var n = 2;
+    while (used[id]) { id = stem + "-" + n; n += 1; }
+    used[id] = true;
+    return id;
+  }
+
   function build(rows, source) {
     var header = rows.length ? rows[0] : null;
     if (!header) return { error: "The file has no rows." };
@@ -277,7 +292,7 @@
       return { error: "Missing column(s): " + parsed.missing.join(", ") + ". The first row must be: " + REQUIRED_COLUMNS.join(", ") + "." };
     }
 
-    var products = [], notes = [];
+    var products = [], notes = [], used = {};
     for (var i = 1; i < rows.length; i++) {
       var line = i + 1;
       var result = toProduct(rows[i], parsed.map, line);
@@ -286,6 +301,7 @@
         continue;
       }
       if (!isActive(cell(rows[i], parsed.map, "active"))) continue;  /* hidden by the owner */
+      result.product.id = rowKey(result.product.name, line, used);
       if (result.note && notes.length < 12) notes.push(result.note);
       products.push(result.product);
     }
@@ -323,6 +339,29 @@
     var id = value.replace(/^https:\/\/docs\.google\.com\/spreadsheets\/d\//i, "").split("/")[0].split("?")[0].split("#")[0];
     var gid = (value.match(/[#&?]gid=(\d+)/i) || [])[1];
     return "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:csv" + (gid ? "&gid=" + gid : "");
+  }
+
+  /* The other half of the story: a link that cannot work is named here before
+     a single request goes out. A OneDrive, Drive or Dropbox share link serves an
+     HTML viewer for a binary .xlsx and never answers a cross-site browser read,
+     so fetching it wastes a round trip and leaves the owner with a misleading
+     "could not reach" error. The message says what to use instead. */
+  var UNSUITABLE = [
+    { test: /1drv\.ms|onedrive\.live\.com|sharepoint\.com|microsoft\.com\/_layouts/i,
+      why: "That is a OneDrive/SharePoint link: it opens an HTML viewer for the .xlsx file and does not answer a cross-site browser read. Save the sheet as CSV, commit it to this repository as data/catalog.csv, and point csvUrl at the raw.githubusercontent.com address of that file - or use a Google Sheet published to the web as CSV." },
+    { test: /drive\.google\.com/i,
+      why: "That is a Google Drive file link, not a published sheet. In Google Sheets use File > Share > Publish to web > CSV, or the spreadsheet's export?format=csv address." },
+    { test: /dropbox\.com/i,
+      why: "Dropbox share links do not answer a cross-site browser read. Commit the CSV into this site instead." },
+    { test: /\.xlsx?(?:\?|$|#)/i,
+      why: "An .xlsx file is a zipped workbook, not CSV. Export or publish the sheet as .csv first." }
+  ];
+
+  function sourceProblem(url) {
+    for (var i = 0; i < UNSUITABLE.length; i++) {
+      if (UNSUITABLE[i].test.test(url)) return UNSUITABLE[i].why;
+    }
+    return null;
   }
 
   function candidates() {
@@ -386,6 +425,29 @@
   /* ------------------------------------------------------------------ *
    * Public load - shared, so two callers mean one request, not two
    * ------------------------------------------------------------------ */
+
+  /* A failed read never blanks a page that already has rows: the last good
+     list stays on screen and the status says it is held over. */
+  function applyFailure(message) {
+    inflight = null;
+    state.error = message;
+    var cached = readCache(CACHE_KEY);
+    if (cached && cached.rows && cached.rows.length) {
+      /* Keep showing the last good list rather than blanking the page. */
+      state.rows = cached.rows;
+      state.notes = cached.notes || [];
+      state.source = cached.source;
+      state.fetchedAt = cached.ts;
+      state.fromCache = true;
+      state.status = "cached";
+    } else {
+      state.rows = [];
+      state.status = "error";
+    }
+    notify();
+    return snapshot();
+  }
+
   function load() {
     if (inflight) return inflight;
 
@@ -397,11 +459,19 @@
       return Promise.resolve(snapshot());
     }
 
+    var usable = [];
+    var blocked = "";
+    list.forEach(function (entry) {
+      var why = sourceProblem(entry.url);
+      if (why) { if (!blocked) blocked = why; } else usable.push(entry);
+    });
+    if (!usable.length) return Promise.resolve(applyFailure(blocked));
+
     /* Rows already on screen stay visible while the new read is in flight. */
     if (!state.rows.length) state.status = "loading";
     notify();
 
-    inflight = loadFrom(list, 0, null).then(function (built) {
+    inflight = loadFrom(usable, 0, null).then(function (built) {
       state.rows = built.products;
       state.notes = built.notes;
       state.source = built.source;
@@ -414,23 +484,7 @@
       notify();
       return snapshot();
     }).catch(function (error) {
-      inflight = null;
-      state.error = error.message;
-      var cached = readCache(CACHE_KEY);
-      if (cached && cached.rows && cached.rows.length) {
-        /* Keep showing the last good list rather than blanking the page. */
-        state.rows = cached.rows;
-        state.notes = cached.notes || [];
-        state.source = cached.source;
-        state.fetchedAt = cached.ts;
-        state.fromCache = true;
-        state.status = "cached";
-      } else {
-        state.rows = [];
-        state.status = "error";
-      }
-      notify();
-      return snapshot();
+      return applyFailure(error.message);
     });
 
     return inflight;

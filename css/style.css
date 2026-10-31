@@ -418,6 +418,10 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 
 /* 10. ACCESSORIES + COVER SHOWCASE ====================================== */
 .accessory-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+/* The home shop section stacks the live product grid above the category tiles.
+   Neither grid carries a margin of its own - every other page uses one or the
+   other alone - so this lead-in line is what separates the two. */
+.shop-lead { margin: var(--s-6) 0 14px; font-weight: 600; }
 .accessory-card {
   border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius-md);
   padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -650,7 +654,7 @@ html[data-theme="light"] .cta .eyebrow { color: #e2d3ff; }
 .shop-top select { background: var(--surface); color: var(--text); border: 1px solid var(--line); padding: 9px 11px; border-radius: var(--radius-xs); }
 
 /* 17. FORMS ============================================================= */
- var(--s-7) var(--gutter); display: grid; grid-template-columns: 1.25fr .75fr; gap: var(--s-5); align-items: start; }
+.booking-wrap { padding: var(--s-7) var(--gutter); display: grid; grid-template-columns: 1.25fr .75fr; gap: var(--s-5); align-items: start; }
 .form-card { background: var(--surface); border: 1px solid var(--line); padding: var(--s-5); border-radius: var(--radius-lg); display: grid; gap: 4px; }
 .form-card label { display: block; font-size: .78rem; font-weight: 700; margin-bottom: 16px; letter-spacing: .02em; }
 .form-card input, .form-card select, .form-card textarea {
@@ -682,7 +686,7 @@ html[data-theme="light"] .cta .eyebrow { color: #e2d3ff; }
 .contact-side-card { display: grid; gap: 10px; }
 
 /* 18. CONTACT + MAP ===================================================== */
-.contact-grid { grid-template-columns: .9fr 1.1fr; }
+.contact-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: var(--s-5); align-items: start; padding: var(--s-7) var(--gutter); }
 .contact-info { display: grid; gap: 12px; align-content: start; }
 .contact-info > a, .contact-info > div { display: flex; gap: 15px; align-items: center; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); transition: all var(--dur) var(--ease); text-align: left; }
 .contact-info > a:hover { border-color: var(--accent-line); transform: translateY(-3px); }
@@ -918,3 +922,98 @@ html.js .js-loading { display: none; }
 .dialog-pager { display: flex; align-items: center; gap: 12px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
 .dialog-count { font-size: .78rem; color: var(--muted); margin-inline: auto; }
 body.dialog-open { overflow: hidden; }
+
+/* 29. ORDER TRAY ========================================================= */
+/* A collected list, not a shopping cart: the badge counts what is on this
+   device, and nothing here says bought, booked, reserved or in stock. The
+   order leaves the site only when the visitor presses Send on WhatsApp. */
+.order-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: var(--radius-xs); background: var(--surface);
+  color: var(--text); font-size: .82rem; font-weight: 700; white-space: nowrap;
+  transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.order-btn:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+.order-count {
+  display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: var(--radius-pill); background: var(--surface-3); color: var(--muted);
+  font-family: var(--font-display); font-size: .74rem; font-weight: 700;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.order-btn.has-items { border-color: var(--accent-line); }
+.order-btn.has-items .order-count { background: var(--accent); color: var(--on-accent); }
+
+.order-drawer {
+  position: fixed; top: var(--header-h); right: 0; bottom: 0; width: min(430px, 100%);
+  z-index: 110; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow-lift);
+  padding: 0 var(--s-4) var(--s-4);
+}
+.order-drawer:not([hidden]) { animation: tray-in .28s var(--ease); }
+@keyframes tray-in { from { transform: translateX(28px); opacity: .35; } to { transform: none; opacity: 1; } }
+
+.order-head {
+  position: sticky; top: 0; z-index: 2; background: var(--surface);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: var(--s-4) 0 10px;
+}
+.order-head h2 { font-size: 1.2rem; letter-spacing: -.02em; margin: 0; }
+.order-close {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); color: var(--muted);
+  display: grid; place-items: center; font-size: 1.25rem;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.order-close:hover { color: var(--text); background: var(--surface-3); }
+
+/* Says what the list is for, in the same plain words as the rest of the site. */
+.order-how {
+  font-size: .78rem; line-height: 1.5; color: var(--muted);
+  border-left: 2px solid var(--line); padding-left: 10px; margin-bottom: var(--s-3);
+}
+
+.order-list { display: grid; gap: 10px; }
+.order-row {
+  display: grid; grid-template-columns: 56px 1fr auto auto; gap: 10px; align-items: center;
+  padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.order-row.is-stale { border-style: dashed; }
+.order-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: var(--radius-xs); background: var(--surface-3); }
+.order-copy { display: grid; gap: 2px; min-width: 0; }
+.order-copy b { font-size: .86rem; line-height: 1.3; }
+.order-copy small { font-size: .72rem; color: var(--muted); }
+.order-copy .order-warn { color: var(--warn); }
+
+.order-qty { display: flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: var(--radius-xs); background: var(--surface); }
+.qty-btn { width: 28px; height: 30px; font-size: 1rem; font-weight: 700; color: var(--muted); border-radius: var(--radius-xs); transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease); }
+.qty-btn:hover { color: var(--text); background: var(--accent-soft); }
+.qty-value { min-width: 22px; text-align: center; font-family: var(--font-display); font-size: .84rem; font-weight: 700; }
+.qty-drop { font-size: .7rem; font-weight: 600; color: var(--muted); padding: 6px 2px; white-space: nowrap; }
+.qty-drop:hover { color: var(--danger); text-decoration: underline; }
+
+.order-none { font-size: .84rem; color: var(--muted); padding: var(--s-3) 0; }
+
+.order-total {
+  display: grid; gap: 4px; font-size: .84rem; margin-top: var(--s-3); padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.order-total b { font-family: var(--font-display); font-size: 1.05rem; }
+.order-total small { font-size: .72rem; line-height: 1.45; color: var(--muted); }
+
+.order-fields { display: grid; gap: 8px; margin: var(--s-3) 0; }
+.order-field {
+  display: grid; gap: 4px; font-size: .68rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+}
+.order-field input {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-xs);
+  padding: 11px 12px; font-size: .9rem; color: var(--text); outline: 0;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.order-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.order-actions { display: grid; gap: 8px; justify-items: stretch; }
+.order-actions .btn { width: 100%; }
+.order-actions .btn-sm { justify-self: center; width: auto; }
+
+/* A product already on the list looks different but still adds one more. */
+.btn-primary.in-order { background: var(--accent); color: var(--on-accent); }

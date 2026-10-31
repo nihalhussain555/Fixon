@@ -49,6 +49,7 @@
       <a class="btn btn-sm btn-whatsapp" data-fixon-wa="general" href="#">WhatsApp</a>
       <a class="btn btn-sm btn-primary" href="booking.html">Book Repair</a>
     </div>
+    <button class="order-btn" id="orderBtn" type="button" aria-expanded="false" aria-controls="orderDrawer" aria-label="Order list, empty"><span class="order-label" aria-hidden="true">Order list</span><span class="order-count" aria-hidden="true">0</span></button>
     <button class="icon-btn" id="themeBtn" type="button" title="Toggle theme">☼</button>
     <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="primaryNav" aria-label="Open menu" title="Menu"><i></i><i></i><i></i></button>
   </div>
@@ -59,7 +60,7 @@
   <section class="page-hero compact">
     <span class="eyebrow">FIXON CATALOG</span>
     <h1>Everything your<br><em>phone needs.</em></h1>
-    <p>Covers, protectors, chargers, cables, audio and more. This list is the shop's own catalogue - search it, filter it, then ask FIXON on WhatsApp to confirm fit, stock and price.</p>
+    <p>Covers, protectors, chargers, cables, audio and more. This list is the shop's own catalogue - search it, filter it, add what you want to your order list, then send that list to FIXON on WhatsApp to confirm fit, stock and the total.</p>
   </section>
 
   <section class="shop-controls" aria-label="Catalog filters">
@@ -107,7 +108,7 @@
     <noscript><p class="note">This list is built by <code>js/shop.js</code> from the shop's spreadsheet. With scripts off, message FIXON the device model and we will confirm fit and price.</p></noscript>
     <div class="product-grid" id="productGrid"></div>
 
-    <p class="note catalog-hint">Prices shown come from the shop's own list and are confirmed at the counter. Unpriced items are not free or out of stock - just ask, and FIXON will quote the current figure.</p>
+    <p class="note catalog-hint">Prices shown come from the shop's own list and are confirmed at the counter. Unpriced items are not free or out of stock - just ask, and FIXON will quote the current figure. Your order list stays on this device until you press Send on WhatsApp: there is no account, no card payment and nothing is booked before FIXON replies.</p>
     <div class="catalog-notes" id="catalogNotes" hidden></div>
 
     <div class="hero-actions" style="margin-top:40px">
@@ -164,11 +165,13 @@
   <a class="btn btn-sm btn-primary" href="booking.html">Book</a>
 </div>
 <button class="back-top" type="button" aria-label="Back to top" aria-hidden="true">↑</button>
+<aside class="order-drawer" id="orderDrawer" role="dialog" aria-labelledby="orderTitle" hidden></aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/config.js"></script>
 <script src="js/catalog.js"></script>
 <script src="js/products.js"></script>
+<script src="js/order.js"></script>
 <script src="js/app.js"></script>
 <script src="js/shop.js"></script>
 </body>

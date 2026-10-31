@@ -83,7 +83,15 @@
       booking:
         "Hi {shop}, I want to book a repair.\n\nName: {customer}\nPhone: {phone}\nDevice: {brand} {model}\nService: {service}\nPreferred: {date} at {time}\nIssue: {issue}",
       contact:
-        "Hi {shop}, I have a question about {topic}.\n\n{message}\n\n- {customer} ({contact})"
+        "Hi {shop}, I have a question about {topic}.\n\n{message}\n\nDevice: {device}\nBest time to reply: {when}\n\n- {customer} ({contact})",
+
+      /* The order tray (js/order.js) builds one message from the items the
+         visitor added. {items}, {priced} and {extras} arrive already typed as
+         lines by that script, so this template stays the single place where
+         the shop's wording lives. Nothing is submitted anywhere: WhatsApp
+         opens with this text and the visitor sends it themselves. */
+      order:
+        "Hi {shop}, I would like to order these accessories:\n\n{items}\n\n{priced}\n{extras}Please confirm availability, the total and how I should pay."
     },
 
     /* ------------------------------------------------------------------ *
@@ -119,6 +127,23 @@
       "Nothing",
       "Other Android"
     ],
+
+    /* The contact form (contact.html) offers these as "what do you need", and
+       the same script builds the model suggestions from deviceBrands below.
+       These are wording choices, not business claims: none of them promises a
+       price, a turnaround time or a part in stock. */
+    contactTopics: [
+      "Repair question",
+      "Ordering accessories",
+      "Cover or glass fitment",
+      "Quote or booking",
+      "Data transfer",
+      "Something else"
+    ],
+
+    /* Free-text window, so no implied promise that FIXON is standing by at a
+       certain hour. The shop replies when it replies. */
+    callbackTimes: ["Any time", "Before noon", "Afternoon", "Evening"],
 
     services: [
       { id: "Screen Replacement", icon: "▣", blurb: "Broken or damaged display repair." },
@@ -211,34 +236,47 @@
     ],
 
     /* ------------------------------------------------------------------ *
-     * 10. CATALOG SOURCE - the shop owner's spreadsheet
+     * 10. CATALOG SOURCE - the shop's product list
      * ------------------------------------------------------------------
      * Products and their prices live in a spreadsheet, NOT in code, so the
      * owner can add, edit, activate or hide an item without a developer.
      *
-     *   csvUrl           ONE public CSV address. Either a Google Sheet
-     *                    published to the web as CSV (see GOOGLE-SHEETS.md)
-     *                    or any other https:// file that serves plain CSV
-     *                    with Access-Control-Allow-Origin: *.
-     *                    Leave it as SET_ME_PUBLISHED_CSV_URL and the shop
-     *                    pages politely say the catalogue is not online yet -
-     *                    nothing is invented to fill the grid.
-     *   localFallback    A CSV inside this site, read when csvUrl is not set
-     *                    or fails. Empty by default. Excel/OneDrive owners can
-     *                    use it without any Google account: File -> Save a
-     *                    Copy -> CSV, upload as data/catalog.csv, then set
-     *                    this line to "data/catalog.csv".
-     *   servicesCsvUrl   Optional second sheet for services (same columns, plus
-     *                    an "icon" column is ignored). Leave "" to use the
+     * WHAT WORKS AND WHAT CANNOT (this is the setting that breaks most often):
+     *   The browser must be able to fetch a *plain CSV* from another site, and
+     *   that response must carry "Access-Control-Allow-Origin: *". A OneDrive,
+     *   Google Drive, Dropbox or Excel-online SHARE link is an HTML viewer page
+     *   for a .xlsx file and sends no such header, so it can never be read here
+     *   - that is not a bug in this site, it is how browsers enforce cross-site
+     *   reads. Use one of the two addresses below instead.
+     *
+     *   csvUrl           ONE public CSV address. Two proven shapes:
+     *                    1. a CSV committed to this repository, read through
+     *                       https://raw.githubusercontent.com/<user>/<repo>/main/<path>
+     *                       (raw.githubusercontent.com does send the CORS
+     *                       header). Editing the file on GitHub updates the live
+     *                       catalogue on the next page load - no re-deploy.
+     *                    2. a Google Sheet published to the web as CSV, or its
+     *                       export?format=csv link (see GOOGLE-SHEETS.md).
+     *                    Leave it as a SET_ME_* value and the shop pages
+     *                    politely say the catalogue is not online yet - nothing
+     *                    is invented to fill the grid.
+     *   localFallback    A CSV inside this site, tried when csvUrl is not set
+     *                    or fails. It also serves as the offline copy for
+     *                    local testing, and as the stale-but-real copy if the
+     *                    raw link is ever unreachable. Same file either way:
+     *                    data/catalog.csv.
+     *   servicesCsvUrl   Optional second list for services (same columns; an
+     *                    "icon" column is ignored). Leave "" to use the
      *                    FIXON.services and FIXON.counterServices lists below.
-     *   refreshMinutes   How often an open page re-reads the sheet. Google's
-     *                    published CSV itself can lag several minutes behind an
-     *                    edit, so the site never claims real-time updates.
+     *   refreshMinutes   How often an open page re-reads the list. A published
+     *                    Google CSV can lag several minutes behind an edit and
+     *                    raw.githubusercontent.com caches briefly too, so the
+     *                    site never claims real-time updates.
      *
      * REQUIRED COLUMNS (header row, any order):
      *   name, price, description, image, category, active
      * OPTIONAL COLUMNS:
-     *   featured  (TRUE shows it in the featured strip)
+     *   featured  (TRUE puts it first in the home page and category strips)
      *   brand     (device brand, keeps brands.html / models.html deep links)
      *   model     (device series or model, same reason)
      *   url       (link to a product page the shop wants to send people to)
@@ -250,8 +288,8 @@
      * keys in frontend code, and this site needs none.
      * ------------------------------------------------------------------ */
     catalog: {
-      csvUrl: "https://1drv.ms/x/c/61aaf347c72c2bb5/IQDt3GQe8cUCRLt0u9sArH2uAc8MkRF-tE1aEnZ9efmQtuM?e=amkxgY",
-      localFallback: "",
+      csvUrl: "https://raw.githubusercontent.com/nihalhussain555/Fixon/main/data/catalog.csv",
+      localFallback: "data/catalog.csv",
       servicesCsvUrl: "",
       refreshMinutes: 30
     },
@@ -354,6 +392,30 @@
     return "images/" + dir + "/" + String(slug).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".jpg";
   }
 
+  /* Clipboard, with the fallback the older browsers and plain http previews
+     need. Both forms that hand text over to the visitor use this one copy so
+     they fail the same way: resolve(false), then the caller selects the text
+     and tells the visitor to press Ctrl + C. */
+  function legacyCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;left:-9999px;top:0";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function copy(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }).catch(function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+
   window.FIXON = FIXON;
   window.fixonUtils = {
     isSet: isSet,
@@ -367,6 +429,7 @@
     firstConfigured: firstConfigured,
     formatPrice: formatPrice,
     brandById: brandById,
-    photoSrc: photoSrc
+    photoSrc: photoSrc,
+    copy: copy
   };
 })();
