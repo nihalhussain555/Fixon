@@ -43,7 +43,8 @@ none.
    | `url` | optional — a link to a product page you want people to open |
 
 4. Scroll down and press **Commit changes**.
-5. Wait about a minute, then reload the shop page and press **Refresh list**.
+5. Wait about a minute, then reload the shop page. A reload always asks for the
+   file again — the short delay is GitHub holding its own copy, not the site.
 
 The header line is already there. **Never delete it, never reorder it, never
 translate it.** Add your products from line 2 onwards.
@@ -88,8 +89,12 @@ you do not maintain two lists.
   stand-in never looks like a real photo of the item.
 - **A row with no `name` is skipped** and reported in the owner notes.
 - **Categories you spell unusually still show.** If the `category` value does
-  not match the list in section 1, the item is kept and given its own filter
-  tile using your spelling, so a typo cannot make a product vanish.
+  not match the list in section 1, the item still appears in the grid, still
+  matches a search for your spelling, and still gets its own tile on the
+  Categories page (that tile links `shop.html?cat=raw:<your spelling>`, and the
+  products page then shows a "Category <your spelling>" pill with one click back
+  to everything). A typo cannot make a product vanish — it only means the
+  products page has no button to press, because it has none: only a search box.
 - Renaming a product changes its address in a visitor's saved order list. The
   item is then shown to them as "no longer on the online list" — they can still
   send it to you, and you can still understand it.
@@ -110,7 +115,7 @@ If you would rather type in Google Sheets than in GitHub:
 Two things to know: a published Google CSV **can lag several minutes behind an
 edit**, and the site re-reads it every `refreshMinutes` (30 by default). So an
 edit is not instant, and the pages never claim it is. If you need it live
-sooner, press **Refresh list** on the shop page.
+sooner, reload the shop page - a fresh load asks for the file again.
 
 With the GitHub route the same caching applies (raw.githubusercontent.com holds
 a file briefly), which is why step 5 in section 1 says *wait about a minute*.
@@ -196,7 +201,7 @@ once, and the owner note names the row whose link was rejected.
 
 ---
 
-**Files involved:** `data/catalog.csv` (your list), `js/config.js` line 274
+**Files involved:** `data/catalog.csv` (your list), `js/config.js` line 291
 (where the address lives), `js/catalog.js` (reads and validates it),
 `js/products.js` (cards), `js/order.js` (the order list and the WhatsApp
-message), `js/shop.js` (filters, sorting, Details dialog).
+message), `js/shop.js` (search, the deep-link pills, Details dialog).

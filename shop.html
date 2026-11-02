@@ -60,21 +60,15 @@
   <section class="page-hero compact">
     <span class="eyebrow">FIXON CATALOG</span>
     <h1>Everything your<br><em>phone needs.</em></h1>
-    <p>Covers, protectors, chargers, cables, audio and more. This list is the shop's own catalogue - search it, filter it, add what you want to your order list, then send that list to FIXON on WhatsApp to confirm fit, stock and the total.</p>
+    <p>Covers, protectors, chargers, cables, audio and more. This list is the shop's own catalogue - search it by name, brand, model or category, add what you want to your order list, then send that list to FIXON on WhatsApp to confirm fit, stock and the total.</p>
   </section>
 
-  <section class="shop-controls" aria-label="Catalog filters">
-    <div class="finder-strip">
-      <span>Not sure what fits your phone?</span>
-      <a class="btn btn-sm btn-secondary" href="brands.html">Choose your brand</a>
-      <a class="btn btn-sm btn-whatsapp" data-fixon-wa="accessory" data-fixon-token-category="the right cover for my model" href="#">Ask FIXON</a>
-    </div>
+  <section class="shop-controls" aria-label="Search the catalog">
     <label class="search-box">
       <span aria-hidden="true">⌕</span>
       <span class="is-hidden">Search the catalog</span>
       <input id="searchInput" type="search" placeholder="Search by name, brand, model or category..." autocomplete="off">
     </label>
-    <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
   </section>
 
   <section class="section">
@@ -83,17 +77,6 @@
       <div class="shop-tally">
         <span id="resultCount" role="status">Loading items…</span>
         <span class="catalog-status" id="catalogStatus"></span>
-      </div>
-      <div class="shop-tools">
-        <label class="sort-label">Sort
-          <select id="sortSelect">
-            <option value="featured">Featured first</option>
-            <option value="name">Name A–Z</option>
-            <option value="price-asc">Price low to high</option>
-            <option value="price-desc">Price high to low</option>
-          </select>
-        </label>
-        <button class="btn btn-sm btn-ghost" id="refreshBtn" type="button">Refresh list</button>
       </div>
     </div>
 

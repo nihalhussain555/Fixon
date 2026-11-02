@@ -20,7 +20,7 @@
   var U = window.fixonUtils;
   var C = window.fixonCatalog;
 
-  var state = { category: "All", query: "", sort: "featured", brand: "", model: "" };
+  var state = { category: "All", query: "", brand: "", model: "" };
   var started = false;
 
   function el(tag, className, text) {
@@ -61,98 +61,58 @@
     return true;
   }
 
-  function sorted(list) {
-    var out = list.slice();
-    if (state.sort === "name") {
-      out.sort(function (a, b) { return a.name.localeCompare(b.name); });
-    } else if (state.sort === "price-asc" || state.sort === "price-desc") {
-      var dir = state.sort === "price-asc" ? 1 : -1;
-      out.sort(function (a, b) {
-        /* Items with no price stay at the bottom whichever way the list runs:
-           they are not cheaper or dearer, they are simply unpriced. */
-        if (a.priceNumber === null && b.priceNumber === null) return a.name.localeCompare(b.name);
-        if (a.priceNumber === null) return 1;
-        if (b.priceNumber === null) return -1;
-        return (a.priceNumber - b.priceNumber) * dir;
-      });
-    } else {
-      out.sort(function (a, b) {
-        if (a.featured !== b.featured) return a.featured ? -1 : 1;
-        return a.id.localeCompare(b.id, undefined, { numeric: true });
-      });
+  /* Search is the only control on this page, so the list has one ordering:
+     rows the shop marked featured lead, then the sheet's own order. */
+  function ordered(list) {
+    return list.slice().sort(function (a, b) {
+      if (a.featured !== b.featured) return a.featured ? -1 : 1;
+      return a.id.localeCompare(b.id, undefined, { numeric: true });
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Deep-link pills
+   * ------------------------------------------------------------------ *
+   * The page has no category buttons any more, but links into it still carry
+   * ?cat=, ?brand= and ?model= (the category tiles, the brand finder). A
+   * visitor who arrives that way is filtered, so the filter has to be visible
+   * and one click has to undo it. Labels come from the sheet's own categories;
+   * anything unknown is shown as written, through textContent only.
+   * ------------------------------------------------------------------ */
+  function categoryLabel(id) {
+    var list = C.categories();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) return list[i].label;
     }
-    return out;
+    return id.indexOf("raw:") === 0 ? id.slice(4) : id;
   }
 
-  /* ------------------------------------------------------------------ *
-   * Category chips - built from the sheet, never written as HTML
-   * ------------------------------------------------------------------ */
-  function buildFilters() {
-    var host = byId("filters");
-    if (!host) return;
-    var cats = C.categories();
-    host.textContent = "";
-
-    var all = el("button", "filter", "All items");
-    all.type = "button";
-    all.setAttribute("data-filter", "All");
-    host.appendChild(all);
-
-    cats.forEach(function (c) {
-      var label = c.count ? c.label + " (" + c.count + ")" : c.label;
-      var btn = el("button", "filter", label);
-      btn.type = "button";
-      btn.setAttribute("data-filter", c.id);
-      if (!c.count) btn.title = "Nothing tagged " + c.label + " right now";
-      host.appendChild(btn);
-    });
-
-    syncFilterActive();
-  }
-
-  function syncFilterActive() {
-    document.querySelectorAll("#filters .filter").forEach(function (btn) {
-      var on = btn.getAttribute("data-filter") === state.category;
-      btn.classList.toggle("active", on);
-      btn.setAttribute("aria-pressed", on ? "true" : "false");
-    });
-  }
-
-  /* One delegated listener for a bar that re-renders whenever the sheet
-     changes - that is what keeps listeners from stacking up. */
-  function wireFilters() {
-    var host = byId("filters");
-    if (!host || host.dataset.wired) return;
-    host.dataset.wired = "1";
-    host.addEventListener("click", function (event) {
-      var btn = event.target.closest(".filter");
-      if (!btn || !host.contains(btn)) return;
-      state.category = btn.getAttribute("data-filter") || "All";
-      syncFilterActive();
-      render();
-    });
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Deep-link chips
-   * ------------------------------------------------------------------ */
   function renderActiveFilters() {
     var bar = byId("activeFilters");
     if (!bar) return;
     bar.textContent = "";
-    if (!state.brand && !state.model) return;
 
-    [["Brand", state.brand], ["Series", state.model]].forEach(function (pair) {
-      if (!pair[1]) return;
+    var pills = [];
+    if (state.category !== "All") pills.push(["Category", categoryLabel(state.category)]);
+    if (state.brand) pills.push(["Brand", state.brand]);
+    if (state.model) pills.push(["Series", state.model]);
+    if (!pills.length) return;
+
+    pills.forEach(function (pair) {
       var chip = el("span", "af-chip");
       chip.appendChild(el("span", null, pair[0] + " "));
-      chip.appendChild(el("b", null, pair[1]));
+      chip.appendChild(el("b", null, clip(pair[1], 40)));
       bar.appendChild(chip);
     });
 
-    var clear = el("a", "af-clear", "Clear filters ×");
+    var clear = el("a", "af-clear", "Show all items ×");
     clear.href = "shop.html";
     bar.appendChild(clear);
+  }
+
+  function clip(value, max) {
+    var text = String(value || "");
+    return text.length > max ? text.slice(0, max - 1) + "…" : text;
   }
 
   /* ------------------------------------------------------------------ *
@@ -258,7 +218,7 @@
     if (!grid) return;
     var snapshot = C.status();
     var all = snapshot.rows || [];
-    var list = sorted(all.filter(matches));
+    var list = ordered(all.filter(matches));
 
     var count = byId("resultCount");
     if (count) count.textContent = list.length
@@ -267,6 +227,9 @@
 
     var empty = byId("catalogEmpty");
     if (all.length && !list.length) {
+      /* Nothing is visible, so nothing is left in the grid either: the cards
+         from the previous term are removed instead of merely hidden. */
+      grid.textContent = "";
       grid.hidden = true;
       if (empty) {
         empty.hidden = false;
@@ -302,34 +265,6 @@
           state.query = search.value.toLowerCase().trim();
           render();
         }, 140);
-      });
-    }
-
-    var sort = byId("sortSelect");
-    if (sort && !sort.dataset.wired) {
-      sort.dataset.wired = "1";
-      sort.addEventListener("change", function () {
-        state.sort = sort.value || "featured";
-        render();
-      });
-    }
-
-    var refresh = byId("refreshBtn");
-    if (refresh && !refresh.dataset.wired) {
-      refresh.dataset.wired = "1";
-      refresh.addEventListener("click", function () {
-        refresh.disabled = true;
-        refresh.textContent = "Refreshing…";
-        C.refresh().then(function (snapshot) {
-          refresh.disabled = false;
-          refresh.textContent = "Refresh list";
-          var ok = snapshot.status === "ready";
-          if (typeof window.showToast === "function") {
-            window.showToast(ok
-              ? "List refreshed from the sheet."
-              : "Could not refresh: " + (snapshot.error || "no answer from the sheet"), ok ? "success" : "error");
-          }
-        });
       });
     }
 
@@ -495,10 +430,8 @@
     if (!started) {
       started = true;
       wireControls();
-      wireFilters();
       wireDialog();
     }
-    buildFilters();
     paintState(snapshot);
     renderOwnerNotes(snapshot);
     render();

@@ -99,8 +99,6 @@
   .cover-showcase { padding: var(--s-7) var(--gutter); }
   .shop-controls { top: var(--header-h); display: grid; gap: 12px; padding: 14px var(--gutter); }
   .search-box { width: 100%; }
-  .filters { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; scrollbar-width: thin; }
-  .filter { white-space: nowrap; }
   .service-grid, .service-grid-large, .product-grid, .accessory-grid { grid-template-columns: 1fr; }
   /* Banner becomes a taller, text-led panel so the copy stays readable. */
   .banner-slider { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); }
@@ -110,8 +108,6 @@
   .banner-nav { width: 34px; height: 34px; font-size: 1.2rem; }
   .brand-grid { grid-template-columns: repeat(2, 1fr); }
   .model-grid { grid-template-columns: 1fr; }
-  .finder-strip { font-size: .8rem; }
-  .finder-strip .btn { flex: 1 1 auto; }
   /* Inline text CTAs need a touch-sized hit area, not just the glyph height. */
   .card-actions { gap: 6px 20px; }
   .card-actions a, .text-link, .service-cta, .wa-mini { padding: 11px 2px; }
@@ -125,7 +121,6 @@
   .dialog { padding: 10px; }
   .dialog-body { grid-template-columns: 1fr; gap: var(--s-3); padding: var(--s-3); }
   .dialog-photo { max-width: 280px; }
-  .shop-tools { width: 100%; justify-content: space-between; }
   .catalog-state { padding: var(--s-4); }
   .form-card { padding: var(--s-4); }
   .footer { grid-template-columns: 1fr 1fr; padding: var(--s-7) var(--gutter) var(--s-5); }

@@ -33,7 +33,7 @@ it.
 ```
 index.html            home: hero slider, accessories (live product strip + category
                       tiles), cover showcase, then services and the quote wizard
-shop.html             the product grid: search, filters, sort, Details dialog, refresh
+shop.html             the product grid: one search box, Details dialog, order tray
 accessories.html      category tiles, each one a filtered link into shop.html
 services.html         repair services + the counter-service strip
 repairs.html          symptom-led repair information and a quote start
@@ -49,7 +49,7 @@ js/config.js          ALL business values + the shared helpers (window.FIXON)
 js/catalog.js         reads and validates the shop's list; one request per source
 js/products.js        a row -> a card, safely; the Add to order button
 js/order.js           the order list and the WhatsApp message it composes
-js/shop.js            filters, sorting, owner notes, the Details dialog
+js/shop.js            search, deep-link pills, owner notes, the Details dialog
 js/categories.js      accessories.html tiles
 js/counter.js         services.html counter strip
 js/finder.js          brands.html / models.html
