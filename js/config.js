@@ -291,7 +291,13 @@
       csvUrl: "https://raw.githubusercontent.com/nihalhussain555/Fixon/main/data/catalog.csv",
       localFallback: "data/catalog.csv",
       servicesCsvUrl: "",
-      refreshMinutes: 30
+      refreshMinutes: 30,
+      /* Where a bare file name in the sheet's "image" column is looked for.
+         Upload a photo to that folder in GitHub and type only "cover-red.jpg"
+         in the row - no path, no code change. A cell that already contains a
+         slash, or a full https:// address, is used exactly as written. Set it
+         to "" to turn the shortcut off and require full paths. */
+      imageFolder: "images/products"
     },
 
     /* ------------------------------------------------------------------ *

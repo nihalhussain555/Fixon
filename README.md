@@ -58,8 +58,9 @@ js/contact.js         contact composer
 js/quote.js           quote entry points
 js/theme.js           dark/light, remembered per device
 js/app.js             hydration, nav, reveal, toasts, photo fallbacks
-data/catalog.csv      the shop's product list (header row only until products are added)
+data/catalog.csv      the shop's product list (currently labelled EXAMPLE rows - see below)
 images/               covers, services, accessories, brands, banners, before-after
+images/products/      drop a photo here and type only its file name in the sheet
 ```
 
 ## The one file the owner edits
@@ -73,6 +74,28 @@ name,price,description,image,category,active,featured,brand,model,url
 Add one line per product, set `active` to `TRUE` to show it. Nothing else has
 to change; the shop pages pick it up on the next read.
 
+**The file ships with thirteen rows whose names all start with `EXAMPLE -`**
+(twelve active, one marked `active=FALSE` to show how hiding a row works).
+They exist so the pages can be tested with a populated list. Their names and
+prices are not FIXON's. Replace each one with a real item and a real price, or
+delete them, before publishing — a visitor cannot tell a placeholder from stock.
+
+### Writing the `image` cell
+
+The picture for a listing is chosen per row, not by a folder rule. Three shapes
+work:
+
+```
+cover-red.jpg                     a file you uploaded to images/products/
+images/accessories/chargers.jpg   a path inside this site
+https://cdn.example.com/a.jpg     a picture hosted elsewhere (https only)
+```
+
+A bare file name is looked for in `catalog.imageFolder` in `js/config.js`, so
+uploading the photo and typing `cover-red.jpg` is the whole job. Leave the cell
+blank and the category illustration is used instead. Full details in
+GOOGLE-SHEETS.md.
+
 ## Where the business details live
 
 `js/config.js` holds every value the shop owns, in numbered sections. It is the
@@ -83,7 +106,8 @@ the product-list address.
 |---|---|
 | phone / WhatsApp | `phoneDial`, `whatsappNumber` (line 44-45) — **one** number, never hard-coded elsewhere |
 | email, address, hours, map | `email`, `addressLine`, `openingHours`, `mapsUrl` |
-| product list address | `catalog.csvUrl` (line 274) |
+| product list address | `catalog.csvUrl` (line 291) |
+| where a bare image file name points | `catalog.imageFolder` |
 | how often pages re-read it | `catalog.refreshMinutes` |
 | currency and the no-price wording | `currencySymbol`, `priceNote` |
 | message templates | `messages` (each `{token}` is filled at click time) |
@@ -116,9 +140,11 @@ Notes that save an hour:
 - Add `?debug=1` to `shop.html` to see the owner notes panel: skipped rows,
   rejected prices/images, and which source answered.
 
-To see the whole thing with products before the real list exists, temporarily
-point `localFallback` at a test CSV **outside this repository**. Never commit a
-fixture with invented prices — it would go live as fact.
+To test with products that are not the shop's, the safest route is a fixture CSV
+**outside this repository** pointed at by `localFallback`, so nothing invented
+can be pushed by accident. `data/catalog.csv` currently carries the compromise:
+rows that announce themselves as `EXAMPLE -` in every name. Never commit a
+plausible-looking invented price — it would go live as fact.
 
 ## Deploy
 
@@ -159,7 +185,8 @@ Call / WhatsApp / Book bar so both stay reachable.
   `textContent`, never concatenated into `innerHTML`, so a cell containing
   markup cannot execute.
 - Sheet links are filtered to `https://` or a same-site path; image cells must
-  end in a real image extension.
+  end in a real image extension, so a `javascript:` or `data:` cell is rejected
+  and the row falls back to its category illustration.
 - One shared loader, one in-flight request, one timer: opening a page does not
   stack duplicate listeners or hammer the CSV address.
 - A failed read keeps the last good list on screen (`cached` state) instead of

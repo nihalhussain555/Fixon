@@ -91,6 +91,23 @@
     return value;
   }
 
+  /* One image cell, three ways to write it, all ending as a plain <img src>:
+       https://cdn.example.com/a.jpg   a picture hosted elsewhere
+       images/products/a.jpg           a path inside this site
+       a.jpg                           a bare file name
+     A bare name is looked for in catalog.imageFolder, which is the whole point
+     of that setting: the shop uploads a photo into one folder and types only
+     its file name in the sheet, while the picture itself stays chosen per row
+     instead of being picked from a fixed folder by category. */
+  function resolveImage(raw) {
+    var value = safeImageUrl(raw);
+    if (!value) return null;
+    var folder = trim(CFG.catalog.imageFolder || "").replace(/\/+$/, "");
+    if (!folder) return value;
+    var alreadyPlaced = /^[a-z][a-z0-9+.-]*:/i.test(value) || value.indexOf("/") === 0 || value.indexOf("/") !== -1;
+    return alreadyPlaced ? value : folder + "/" + value;
+  }
+
   function categoryPhoto(categoryId) {
     var list = CFG.productCategories;
     for (var i = 0; i < list.length; i++) {
@@ -225,7 +242,7 @@
     var rawCategory = cell(row, map, "category");
     var categoryId = categoryIdFor(rawCategory);
     var rawImage = cell(row, map, "image");
-    var image = safeImageUrl(rawImage);
+    var image = resolveImage(rawImage);
     var priceText = cell(row, map, "price");
     var priceNumber = priceValue(priceText);
     var price = priceNumber === null ? null : U.formatPrice(priceNumber);
@@ -234,7 +251,7 @@
     /* A price the parser cannot read is a spreadsheet typo: the card still
        shows "Price on request", and the owner is told which line to fix. */
     if (priceText && price === null) problems.push("price \"" + clip(priceText, 24) + "\" is not a number");
-    if (rawImage && !image) problems.push("image link was rejected, using the category picture");
+    if (rawImage && !image) problems.push("image \"" + clip(rawImage, 32) + "\" is not a usable picture, so the category illustration is used");
     var note = problems.length ? "line " + line + ": " + problems.join("; ") : "";
 
     return {

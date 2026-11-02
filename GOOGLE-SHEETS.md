@@ -9,6 +9,14 @@ which opens WhatsApp with the list typed out. The order then exists only as a
 message in your phone — nothing is stored on a server, because this site has
 none.
 
+> **Read this first.** `data/catalog.csv` currently holds thirteen rows that
+> every name starts with `EXAMPLE -`. They are there so you can see the shop,
+> the category pages and the order list working end to end. **The item names
+> and prices are not FIXON's** — they were not supplied by the shop. Replace
+> each row with a real item and a real price, or delete the rows, **before you
+> publish the site**. Nothing is public until you enable GitHub Pages or deploy
+> it, so there is no hurry, but do not skip this step.
+
 ---
 
 ## 1. The 60-second version
@@ -27,7 +35,7 @@ none.
    | `name` | the short shop name of the item |
    | `price` | digits only: `1499`. Leave blank for "Price on request" |
    | `description` | one sentence. Wrap it in double quotes if it contains a comma |
-   | `image` | a full `https://` picture link, **or** leave blank to use the category photo |
+   | `image` | a bare file name (`cover-red.jpg`), a path inside this site (`images/products/cover-red.jpg`), or a full `https://` picture link — or leave blank for the category photo |
    | `category` | one of: `cases, protectors, chargers, cables, power-banks, audio, speakers, wearables, stands, storage, other` |
    | `active` | `TRUE` to show it, `FALSE` to hide it |
    | `featured` | optional — `TRUE` puts the row first in the home-page and category strips. Mark two or three; the strips fill the rest from ordinary active rows, so a row without this column still shows up |
@@ -71,11 +79,13 @@ you do not maintain two lists.
   `12.13.14` are not: the card shows **"Price on request"** and the owner note
   (section 6) tells you which line to fix. A wrong price on screen is worse
   than no price.
-- **Images must be `https://`** or a path inside this site
-  (e.g. `images/covers/clear-armor.jpg`). A `http://`, `drive.google.com`,
-  Google Docs, Dropbox or OneDrive link is rejected and the **category photo**
-  is used instead, labelled "Category illustration" so a stand-in never looks
-  like a real photo of the item.
+- **Images come from the row, not from a folder rule.** The `image` column can
+  hold a bare file name (`cover-red.jpg` — looked for in `images/products/`,
+  which is `catalog.imageFolder` in `js/config.js`), a path inside this site
+  (`images/products/cover-red.jpg`), or a full `https://` link. A `http://`,
+  `drive.google.com`, Google Docs, Dropbox or OneDrive link is rejected and the
+  **category photo** is used instead, labelled "Category illustration" so a
+  stand-in never looks like a real photo of the item.
 - **A row with no `name` is skipped** and reported in the owner notes.
 - **Categories you spell unusually still show.** If the `category` value does
   not match the list in section 1, the item is kept and given its own filter
@@ -169,15 +179,20 @@ answered, and when. Normal visitors never see this panel.
 
 ## 9. Photos
 
-Two ways to give an item a picture:
+Three ways to give an item a picture, all of them chosen per row:
 
-1. Type an `https://` image link in the `image` column.
-2. Drop a photo into this repository at `images/covers/<style-name>.jpg` —
-   the shop already looks there for cover styles — or leave `image` blank and
-   the category illustration in `images/accessories/` is used and labelled.
+1. **A file name.** Upload the photo to `images/products/` in this repository
+   (GitHub's **Add files → Upload files**, pick that folder), then type just
+   `cover-red.jpg` in the `image` column. This is the shortest route and needs
+   no paths in the sheet.
+2. **A path inside the site.** `images/accessories/phone-covers.jpg` works the
+   same way — anything with a slash in it is used exactly as typed.
+3. **A full `https://` link** to a picture hosted elsewhere.
 
+Leave `image` blank and the category illustration from `images/accessories/`
+is used, labelled "Category illustration" so it never pretends to be the item.
 Missing files never break a page: the site falls back to a generic picture
-once, and the card stays honest about it being an illustration.
+once, and the owner note names the row whose link was rejected.
 
 ---
 
