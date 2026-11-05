@@ -218,6 +218,11 @@
    *   features / highlights  short selling points
    *   specs / specifications  "Label: value" pairs
    *   stock / availability      plain status text, e.g. "In stock at the counter"
+   *   original_price / mrp   the struck-through list price, if the shop has one
+   *   discount / off         percent off, e.g. "20" or "20%"
+   *
+   * The two offer columns are checked against the selling price before they are
+   * shown; a claim that does not hold up is dropped and reported to the owner.
    * ------------------------------------------------------------------ */
   var LIST_LIMIT = 12;
   var IMAGE_LIMIT = 8;
@@ -322,6 +327,36 @@
     return Math.round(value * 100) / 100;
   }
 
+  /* Optional offer columns. Both are the owner's claim, never ours:
+       original_price (mrp, list price) -> the figure shown struck through
+       discount (percent off)          -> the badge on the photo
+     A struck price only appears when it is genuinely higher than the selling
+     price, and a percentage badge only when it is a whole number from 1 to 95.
+     When both are present they must agree within a rounding step, otherwise the
+     cheaper claim wins and the other is dropped. */
+  function offerFor(priceNumber, row, map, problems) {
+    if (priceNumber === null) return { was: null, wasLabel: "", percent: null };
+    var wasText = cellAny(row, map, ["original_price", "originalprice", "mrp", "list_price", "strike_price", "was"]);
+    var discountText = cellAny(row, map, ["discount", "discount_percent", "discount_pct", "off", "savings"]);
+    var was = priceValue(wasText);
+    var percent = null;
+    var digits = trim(discountText).replace(/[^\d]/g, "");
+    if (digits) percent = Number(digits);
+    if (percent !== null && !(percent >= 1 && percent <= 95)) percent = null;
+    if (was !== null && was <= priceNumber) {
+      problems.push("original_price " + wasText + " is not above the price");
+      was = null;
+    }
+    if (was !== null && percent !== null) {
+      var claimed = Math.round((1 - priceNumber / was) * 100);
+      if (Math.abs(claimed - percent) > 2) {
+        problems.push("discount " + percent + "% does not match original_price " + wasText);
+        percent = null;
+      }
+    }
+    return { was: was, wasLabel: was === null ? "" : U.formatPrice(was), percent: percent };
+  }
+
   function toProduct(row, map, line) {
     var name = clip(cell(row, map, "name"), 120);
     if (!name) return { note: "line " + line + ": no product name" };
@@ -339,6 +374,7 @@
        shows "Price on request", and the owner is told which line to fix. */
     if (priceText && price === null) problems.push("price \"" + clip(priceText, 24) + "\" is not a number");
     if (rawImage && !image) problems.push("image \"" + clip(rawImage, 32) + "\" is not a usable picture, so the category illustration is used");
+    var offer = offerFor(priceNumber, row, map, problems);
     var note = problems.length ? "line " + line + ": " + problems.join("; ") : "";
 
     return {
@@ -349,6 +385,9 @@
         priceText: priceText,
         price: price,
         priceNumber: priceNumber,
+        wasPrice: offer.was,
+        wasLabel: offer.wasLabel,
+        discount: offer.percent,
         category: categoryId,
         categoryLabel: categoryLabel(categoryId) || clip(rawCategory, 40),
         categoryRaw: clip(rawCategory, 40),

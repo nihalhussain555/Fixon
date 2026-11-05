@@ -26,8 +26,8 @@ none.
 3. Add one line **under** the header line, exactly like this:
 
    ```csv
-   name,price,description,image,category,active,featured,brand,model,url,images,colors,sizes,features,specs,stock
-   Clear Armor Case,1499,"Shockproof back cover for iPhone 15 / 16 series",,cases,TRUE,iPhone,iPhone 15 / 16 series,,,,,,
+   name,price,description,image,category,active,featured,brand,model,url,images,colors,sizes,features,specs,stock,original_price,discount
+   Clear Armor Case,1499,"Shockproof back cover for iPhone 15 / 16 series",,cases,TRUE,iPhone,iPhone 15 / 16 series,,,,,,,,,
    ```
 
    | column | what to type |
@@ -46,11 +46,14 @@ none.
    | `features` | optional — short selling points, one per `;` |
    | `specs` | optional — `Label: value` details, one per `;` |
    | `stock` | optional — one plain status line, e.g. `In stock at the counter` |
+   | `original_price` | optional — the list price to strike through, digits only (`1999`). Shown only when it is above `price` |
+   | `discount` | optional — percent off, `20` or `20%`. Shown only when it matches the two prices |
 
-   The last six are what fills the richer product view. **Leave them blank and
+   The last eight are what fills the richer product view. **Leave them blank and
    the product view simply shows less** — nothing is invented, no "In stock"
-   appears unless you typed it, and no thumbnail strip appears unless you add a
-   second photo. The example rows in `data/catalog.csv` have them filled in so
+   appears unless you typed it, no thumbnail strip appears unless you add a
+   second photo, and no struck price or "OFF" badge appears unless you type the
+   figures. The example rows in `data/catalog.csv` have them filled in so
    you can see what each one does.
 
 4. Scroll down and press **Commit changes**.
@@ -112,7 +115,7 @@ you do not maintain two lists.
 
 ## 3a. The optional detail columns
 
-These six columns are what the product view — the panel that opens when someone
+These eight columns are what the product view — the panel that opens when someone
 taps a product — shows beyond the name, price and description. **Every one of
 them is optional. An empty cell renders as nothing at all.**
 
@@ -128,6 +131,8 @@ cell in double quotes, because a bare comma ends the cell.
 | `features` | a ticked list, captioned "Features" | `Raised camera lip; Ports stay open` |
 | `specs` | a label/value table, captioned "Specifications". Write `Label: value` and the part before the colon becomes the label | `Material: Flexible TPU; Thickness: 1.2 mm` |
 | `stock` | one status line next to the price, with a green dot | `In stock at the counter` |
+| `original_price` | the list price struck through beside the selling price, on the card and in the product view | `1999` |
+| `discount` | an "OFF" badge on the photo and a chip beside the price | `25` or `25%` |
 
 Notes that save a phone call:
 
@@ -141,6 +146,13 @@ Notes that save a phone call:
   ("In stock at the counter", "Made to order - 2 to 3 days"). Leave it blank and
   the site says nothing about availability rather than guessing — and it never
   says "sold out", "only 2 left" or a delivery promise you have not made.
+- **A price the sheet cannot read is a typo, not a discount.** Both offer
+  columns are checked before anything reaches a visitor: the struck price shows
+  only when `original_price` is a number above `price`, the percentage only from
+  1 to 95, and when you fill both they have to agree — `price` 1499 against
+  `original_price` 1999 is 25% off, so writing `40` there keeps the smaller
+  claim, drops the badge, and tells you which line to fix (section 6). With no
+  readable `price` there is nothing to compare, so both stay hidden.
 - Long values are trimmed to keep the panel readable: colour and size chips hold
   about 34 characters each, feature and spec lines about 90, the status line
   about 60. Write short phrases and put the detail in `description`.

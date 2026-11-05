@@ -71,6 +71,10 @@
     if (p.image) img.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
     visual.appendChild(img);
 
+    /* Offer badges come straight off the shop's own sheet columns and only
+       after js/catalog.js has checked them against the selling price. */
+    if (p.discount) visual.appendChild(el("span", "discount-badge", p.discount + "% OFF"));
+
     if (!p.image) visual.appendChild(el("span", "photo-note", "Category illustration"));
     visual.appendChild(el("span", "view-hint", "View details"));
     card.appendChild(visual);
@@ -85,6 +89,7 @@
 
     if (p.price) {
       var price = el("p", "product-price", p.price);
+      if (p.wasLabel) price.appendChild(el("span", "was", p.wasLabel));
       price.appendChild(el("small", null, "confirm at counter"));
       info.appendChild(price);
     } else {
@@ -96,8 +101,14 @@
     var actions = el("div", "card-actions");
 
     /* Buying on this site means adding to an order list that is sent to FIXON
-       on WhatsApp, so that is the only button on a card. Everything else -
-       full description, fitment, asking - lives in the details dialog. */
+       on WhatsApp, so that is the primary action. A card also carries its own
+       details button: the picture and title are click targets too, but neither
+       of those says so on a touch screen. */
+    var details = el("button", "btn btn-sm btn-outline", "View Details");
+    details.type = "button";
+    details.setAttribute("data-details", p.id);
+    actions.appendChild(details);
+
     var add = el("button", "btn btn-sm btn-primary", "Add to order");
     add.type = "button";
     add.setAttribute("data-add", p.id);

@@ -1,35 +1,59 @@
 /* ==========================================================================
    FIXON - core stylesheet
-   Light-first accessories storefront: white base, purple primary, orange
-   highlight. Dark theme remains available via the toggle.
+   White + teal + dark grey. Light mode is the default; dark mode is opt-in and
+   remembered per visitor. Both modes are defined once, as tokens, below - no
+   component carries its own colour literal.
    Class names are inherited from the original site so existing markup and
    behaviour keeps working; new components are appended per section.
    ========================================================================== */
 
 /* 1. TOKENS ============================================================= */
+/* Dark mode lives on :root and light overrides it, so a page whose theme has
+   not been decided yet still renders as a complete, readable dark theme. */
 :root {
-  --bg: #0b0b0e;
-  --bg-boost: #08080a;
-  --surface: #121216;
-  --surface-2: #19191e;
-  --surface-3: #202027;
-  --text: #f5f5f5;
-  --text-soft: #d4d4dc;
-  --muted: #a1a1aa;
-  --line: #29292f;
-  --line-strong: #3a3a44;
-  --accent: #a855f7;
-  --accent-2: #6d5dfc;
-  --accent-soft: rgba(168, 85, 247, .12);
-  --accent-line: rgba(168, 85, 247, .35);
-  --on-accent: #170826;
-  --flame: #ff7a1a;
+  --bg: #0f172a;                 /* main background            */
+  --bg-boost: #111827;           /* secondary background       */
+  --surface: #1e293b;            /* product card background    */
+  --surface-2: #263548;          /* inset / chip background    */
+  --surface-3: #314159;          /* deeper inset / hover fill  */
+  --text: #f8fafc;               /* primary text               */
+  --text-soft: #cbd5e1;          /* secondary text             */
+  --muted: #94a3b8;              /* labels, meta, captions     */
+  --line: #334155;               /* border                     */
+  --line-strong: #475569;        /* stronger border / focus    */
+  --accent: #14b8a6;             /* primary brand colour       */
+  --accent-2: #2dd4bf;           /* secondary teal             */
+  --accent-soft: rgba(20, 184, 166, .14);
+  --accent-line: rgba(20, 184, 166, .38);
+  --on-accent: #04231f;          /* text sitting on the accent */
+  --price: #2dd4bf;              /* price and step numbers     */
+  --tint: #134e4a;               /* light teal background      */
+  --tint-hover: #164e63;         /* hover background           */
+  --glass: rgba(15, 23, 42, .82);
+  --scrim: rgba(2, 6, 23, .66);          /* modal / photo scrim   */
+  --scrim-strong: rgba(2, 6, 23, .92);   /* full-bleed photo view */
+  --on-photo: #ffffff;                   /* text over a photo    */
+  --photo-soft: rgba(255, 255, 255, .78);
+  --photo-line: rgba(255, 255, 255, .3);
+  --photo-ink: #0b1220;                  /* text on a white photo button */
+  /* Brand band: the CTA strip keeps the same deep-teal fill in both themes so
+     white copy stays legible on it either way. These are brand constants, not
+     theme colours, which is why they have no light-mode override. */
+  --band: linear-gradient(120deg, #0f766e, #134e4a 68%);
+  --on-band: #f0fdfa;
+  --band-soft: rgba(240, 253, 250, .8);
+  --band-accent: #99f6e4;
+  /* Hero phone mock: it is a picture of a device, so the shell stays dark in
+     both themes; only the edge and the screen ink change. */
+  --device-shell: #0b1220;
+  --device-edge: #314159;
+  --device-screen: linear-gradient(145deg, #1e293b, #0b1220);
+  --device-ink: #e2e8f0;
   --wa: #25d366;
   --wa-ink: #062b16;
   --ok: #63d391;
   --warn: #ffbd4a;
   --danger: #f2726e;
-  --glass: rgba(20, 20, 25, .82);
 
   --radius-xs: 9px;
   --radius-sm: 13px;
@@ -41,9 +65,9 @@
   --s-1: 6px; --s-2: 12px; --s-3: 18px; --s-4: 26px;
   --s-5: 36px; --s-6: 52px; --s-7: 76px; --s-8: 104px;
 
-  --shadow-sm: 0 8px 22px rgba(0, 0, 0, .28);
-  --shadow: 0 25px 70px rgba(0, 0, 0, .3);
-  --shadow-lift: 0 30px 80px rgba(0, 0, 0, .42);
+  --shadow-sm: 0 8px 22px rgba(2, 6, 23, .45);
+  --shadow: 0 25px 70px rgba(2, 6, 23, .5);
+  --shadow-lift: 0 30px 80px rgba(2, 6, 23, .6);
 
   --header-h: 76px;
   --gutter: 8%;
@@ -56,31 +80,43 @@
 }
 
 html[data-theme="light"] {
-  --bg: #f7f7f9;
-  --bg-boost: #eeeef2;
+  --bg: #ffffff;
+  --bg-boost: #f8fafc;
   --surface: #ffffff;
-  --surface-2: #f2f2f6;
-  --surface-3: #e7e7ee;
-  --text: #12121a;
-  --text-soft: #33333f;
-  --muted: #60606d;
-  --line: #dedae6;
-  --line-strong: #c6c1d2;
-  --accent: #8b2fe0;
-  --accent-2: #5646e0;
-  --accent-soft: rgba(139, 47, 224, .09);
-  --accent-line: rgba(139, 47, 224, .28);
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --text: #1f2937;
+  --text-soft: #334155;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
+  --accent: #0f766e;
+  --accent-2: #14b8a6;
+  --accent-soft: rgba(15, 118, 110, .09);
+  --accent-line: rgba(15, 118, 110, .3);
   --on-accent: #ffffff;
-  --flame: #e8590c;
+  --price: #0f766e;
+  --tint: #f0fdfa;
+  --tint-hover: #ccfbf1;
+  --glass: rgba(255, 255, 255, .86);
+  --scrim: rgba(15, 23, 42, .5);
+  --scrim-strong: rgba(15, 23, 42, .82);
+  --on-photo: #ffffff;
+  --photo-soft: rgba(255, 255, 255, .82);
+  --photo-line: rgba(255, 255, 255, .38);
+  --photo-ink: #0f172a;
+  --device-shell: #111827;
+  --device-edge: #cbd5e1;
+  --device-screen: linear-gradient(145deg, #1f2937, #0b1220);
+  --device-ink: #f1f5f9;
   --wa: #12984a;
   --wa-ink: #ffffff;
   --danger: #c8403c;
   --ok: #248c56;
   --warn: #a56b04;
-  --glass: rgba(255, 255, 255, .86);
-  --shadow-sm: 0 8px 22px rgba(24, 20, 44, .08);
-  --shadow: 0 20px 60px rgba(24, 20, 44, .1);
-  --shadow-lift: 0 28px 72px rgba(24, 20, 44, .14);
+  --shadow-sm: 0 8px 22px rgba(15, 23, 42, .07);
+  --shadow: 0 25px 60px rgba(15, 23, 42, .1);
+  --shadow-lift: 0 30px 72px rgba(15, 23, 42, .14);
 }
 
 /* 2. BASE =============================================================== */
@@ -125,10 +161,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 }
 .pulse {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--ok); box-shadow: 0 0 0 6px rgba(99, 211, 145, .14);
+  background: var(--ok); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ok) 14%, transparent);
   animation: pulse 2.6s var(--ease) infinite;
 }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 5px rgba(99, 211, 145, .14); } 50% { box-shadow: 0 0 0 9px rgba(99, 211, 145, .04); } }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--ok) 14%, transparent); } 50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--ok) 4%, transparent); } }
 .section { padding: var(--s-8) var(--gutter); }
 .section-alt { background: var(--bg-boost); }
 .section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s-4); margin-bottom: var(--s-5); }
@@ -167,17 +203,17 @@ h1 em, h2 em { font-style: normal; color: var(--accent); }
 .btn-secondary { border-color: var(--line); background: var(--surface); color: var(--text); }
 .btn-secondary:hover { border-color: var(--line-strong); background: var(--surface-2); }
 .btn-whatsapp { background: var(--wa); color: var(--wa-ink); }
-.btn-whatsapp:hover { box-shadow: 0 16px 38px rgba(37, 211, 102, .22); }
+.btn-whatsapp:hover { box-shadow: 0 16px 38px color-mix(in srgb, var(--wa) 22%, transparent); }
 .btn-outline { border-color: var(--line); color: var(--text); }
 .btn-outline:hover { border-color: var(--accent-line); background: var(--accent-soft); }
-.btn-light { background: #fff; color: #14141c; }
-.btn-outline-light { border-color: rgba(255, 255, 255, .32); color: #fff; }
+.btn-light { background: var(--on-photo); color: var(--photo-ink); }
+.btn-outline-light { border-color: var(--photo-line); color: var(--on-photo); }
 .btn-sm { padding: 10px 15px; font-size: .84rem; border-radius: var(--radius-xs); }
 .full { width: 100%; }
 .btn[disabled], .is-unconfigured, .is-disabled { opacity: .5; cursor: not-allowed; }
 .btn[disabled]:hover, .is-unconfigured:hover, .is-disabled:hover { transform: none; }
 /* Awaiting config, a filled button must not keep its brand fill: muted grey
-   label on green/purple reads as broken rather than as "not set yet". */
+   label on green/teal reads as broken rather than as "not set yet". */
 .btn-whatsapp.is-unconfigured, .btn-primary.is-unconfigured,
 .btn-light.is-unconfigured {
   background: var(--surface-2); color: var(--muted); border-color: var(--line); box-shadow: none;
@@ -195,7 +231,7 @@ h1 em, h2 em { font-style: normal; color: var(--accent); }
   backdrop-filter: blur(20px) saturate(160%);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), height var(--dur) var(--ease);
 }
-.header.is-scrolled { border-bottom-color: var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+.header.is-scrolled { border-bottom-color: var(--line); box-shadow: var(--shadow-sm); }
 .brand { display: flex; align-items: center; gap: 3px; }
 .logo { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: -.05em; display: inline-flex; align-items: center; }
 .logo span {
@@ -239,7 +275,8 @@ h1 em, h2 em { font-style: normal; color: var(--accent); }
 }
 .hero::before {
   content: ""; position: absolute; inset: -40% 30% auto -10%; height: 70%;
-  background: radial-gradient(50% 50% at 40% 40%, var(--accent-soft), transparent 70%);
+  background: radial-gradient(50% 50% at 40% 40%, var(--accent-soft), transparent 70%),
+              radial-gradient(40% 40% at 78% 22%, var(--tint), transparent 72%);
   pointer-events: none;
 }
 .hero-copy { position: relative; z-index: 2; }
@@ -250,26 +287,25 @@ h1 em, h2 em { font-style: normal; color: var(--accent); }
 .hero-visual { height: 530px; position: relative; display: grid; place-items: center; z-index: 1; }
 .orb { position: absolute; border-radius: 50%; filter: blur(4px); }
 .orb-one { width: 360px; height: 360px; background: radial-gradient(circle, var(--accent-soft), transparent 65%); animation: drift 16s var(--ease) infinite alternate; }
-.orb-two { width: 190px; height: 190px; background: radial-gradient(circle, rgba(109, 93, 252, .28), transparent 65%); right: 6%; top: 10%; animation: drift 20s var(--ease) infinite alternate-reverse; }
+.orb-two { width: 190px; height: 190px; background: radial-gradient(circle, color-mix(in srgb, var(--accent-2) 28%, transparent), transparent 65%); right: 6%; top: 10%; animation: drift 20s var(--ease) infinite alternate-reverse; }
 @keyframes drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(18px, -22px, 0); } }
 .phone {
-  width: 232px; height: 462px; border: 8px solid var(--surface-3); border-radius: 38px;
-  background: #050507; box-shadow: var(--shadow-lift); transform: rotate(8deg);
+  width: 232px; height: 462px; border: 8px solid var(--device-edge); border-radius: 38px;
+  background: var(--device-shell); box-shadow: var(--shadow-lift); transform: rotate(8deg);
   position: relative; z-index: 2; animation: float 7s var(--ease) infinite alternate;
 }
-html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 @keyframes float { from { transform: rotate(8deg) translateY(-8px); } to { transform: rotate(6deg) translateY(10px); } }
-.phone::before { content: ""; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 80px; height: 20px; border-radius: 0 0 14px 14px; background: var(--surface-3); }
+.phone::before { content: ""; position: absolute; top: -1px; left: 50%; transform: translateX(-50%); width: 80px; height: 20px; border-radius: 0 0 14px 14px; background: var(--device-edge); }
 .phone-screen {
-  height: 100%; border-radius: 30px; background: linear-gradient(145deg, #191522, #0b0b0e);
-  padding: 40px 18px 18px; display: flex; flex-direction: column; color: #eee;
+  height: 100%; border-radius: 30px; background: var(--device-screen);
+  padding: 40px 18px 18px; display: flex; flex-direction: column; color: var(--device-ink);
 }
-.phone-screen small { color: #a8a8b4; letter-spacing: .16em; font-size: .7rem; font-weight: 700; }
+.phone-screen small { color: color-mix(in srgb, var(--device-ink) 62%, transparent); letter-spacing: .16em; font-size: .7rem; font-weight: 700; }
 .phone-screen strong { font-family: var(--font-display); font-size: 3.6rem; margin-top: 46px; letter-spacing: -.05em; line-height: 1; }
-.screen-card { margin-top: auto; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); padding: 15px; border-radius: var(--radius-md); color: #b5b5c2; font-size: .82rem; }
-.screen-card b { color: #fff; display: block; font-size: .95rem; }
-.phone-camera { position: absolute; top: 20px; left: 20px; width: 64px; height: 64px; border-radius: 18px; background: #15151a; padding: 7px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; z-index: 3; }
-.phone-camera i { background: #303039; border-radius: 50%; border: 2px solid #08080a; }
+.screen-card { margin-top: auto; background: color-mix(in srgb, var(--device-ink) 7%, transparent); border: 1px solid color-mix(in srgb, var(--device-ink) 12%, transparent); padding: 15px; border-radius: var(--radius-md); color: color-mix(in srgb, var(--device-ink) 76%, transparent); font-size: .82rem; }
+.screen-card b { color: var(--device-ink); display: block; font-size: .95rem; }
+.phone-camera { position: absolute; top: 20px; left: 20px; width: 64px; height: 64px; border-radius: 18px; background: color-mix(in srgb, var(--device-ink) 8%, var(--device-shell)); padding: 7px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; z-index: 3; }
+.phone-camera i { background: color-mix(in srgb, var(--device-ink) 22%, var(--device-shell)); border-radius: 50%; border: 2px solid var(--device-shell); }
 .floating-card {
   position: absolute; background: var(--glass); backdrop-filter: blur(15px);
   border: 1px solid var(--line); border-radius: var(--radius-md); padding: 13px 17px;
@@ -296,30 +332,30 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 /* Scrim keeps the copy legible over any photo the owner drops in later. */
 .banner::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(100deg, rgba(6, 6, 10, .88) 8%, rgba(6, 6, 10, .55) 48%, rgba(6, 6, 10, .1) 82%);
+  background: linear-gradient(100deg, var(--scrim-strong) 8%, var(--scrim) 48%, transparent 82%);
 }
 .banner-copy {
   position: relative; z-index: 2; align-content: center; height: 100%;
-  display: grid; justify-items: start; gap: 10px; padding: 26px var(--s-5); max-width: 560px; color: #fff;
+  display: grid; justify-items: start; gap: 10px; padding: 26px var(--s-5); max-width: 560px; color: var(--on-photo);
 }
 .banner-copy .eyebrow { color: var(--accent); }
 .banner-copy h3 { font-family: var(--font-display); font-size: clamp(1.5rem, 3.1vw, 2.35rem); line-height: 1.08; margin: 0; }
-.banner-copy p { color: rgba(255, 255, 255, .82); font-size: .95rem; margin: 0; }
+.banner-copy p { color: var(--photo-soft); font-size: .95rem; margin: 0; }
 .banner-nav {
   position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
-  width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .3);
-  background: rgba(8, 8, 12, .5); color: #fff; font-size: 1.4rem; line-height: 1;
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--photo-line);
+  background: var(--scrim); color: var(--on-photo); font-size: 1.4rem; line-height: 1;
   display: grid; place-items: center; backdrop-filter: blur(5px); transition: background var(--dur) var(--ease);
 }
-.banner-nav:hover { background: rgba(8, 8, 12, .78); }
+.banner-nav:hover { background: var(--scrim-strong); }
 .banner-nav.prev { left: 12px; }
 .banner-nav.next { right: 12px; }
 .banner-dots { position: absolute; bottom: 14px; left: 0; right: 0; z-index: 3; display: flex; gap: 8px; justify-content: center; }
 .banner-dots button {
   width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0;
-  background: rgba(255, 255, 255, .42); transition: all var(--dur) var(--ease); cursor: pointer;
+  background: color-mix(in srgb, var(--on-photo) 42%, transparent); transition: all var(--dur) var(--ease); cursor: pointer;
 }
-.banner-dots button[aria-selected="true"] { background: #fff; width: 26px; border-radius: var(--radius-pill); }
+.banner-dots button[aria-selected="true"] { background: var(--on-photo); width: 26px; border-radius: var(--radius-pill); }
 .banner-dots button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* 7. SERVICE CARDS ====================================================== */
@@ -333,7 +369,7 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
   background: radial-gradient(120% 90% at 100% 0%, var(--accent-soft), transparent 60%);
   transition: opacity var(--dur) var(--ease);
 }
-.service-card:hover { transform: translateY(-6px); border-color: var(--accent-line); box-shadow: var(--shadow); }
+.service-card:hover { transform: translateY(-6px); border-color: var(--accent-line); background: var(--tint-hover); box-shadow: var(--shadow); }
 .service-card:hover::after { opacity: 1; }
 /* Photos sit flush across the card top: the negative margins cancel the
    card's own 26px padding, and the card clips the corners. */
@@ -379,6 +415,14 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 }
 .accessory-card:hover { transform: translateY(-4px); border-color: var(--accent-line); background: var(--surface-2); }
 .accessory-card em { font-style: normal; color: var(--accent); font-size: .8rem; }
+/* Home tiles are built by js/categories.js, so the category picture is an img
+   rather than a background: it can be labelled, and it can swap to the
+   fallback illustration when a file goes missing. */
+.accessory-thumb {
+  width: 46px; height: 46px; flex: none; object-fit: cover;
+  border-radius: var(--radius-xs); background: var(--bg-boost);
+}
+.accessory-name { flex: 1; min-width: 0; }
 .cover-showcase { padding: var(--s-8) var(--gutter); background: var(--bg-boost); border-block: 1px solid var(--line); }
 .cover-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .cover-tile {
@@ -391,11 +435,11 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 .cover-tile:hover .cover-shot { transform: scale(1.07); }
 /* Label sits on a scrim over the photo, so it stays legible on any cover colour. */
 .cover-label {
-  position: relative; margin-top: auto; padding: 34px 14px 14px; color: #fff;
-  background: linear-gradient(to top, rgba(6, 6, 10, .9), rgba(6, 6, 10, .55) 52%, transparent);
+  position: relative; margin-top: auto; padding: 34px 14px 14px; color: var(--on-photo);
+  background: linear-gradient(to top, var(--scrim-strong), var(--scrim) 52%, transparent);
 }
 .cover-label b { font-family: var(--font-display); font-size: 1rem; display: block; }
-.cover-label small { display: block; font-size: .76rem; color: rgba(255, 255, 255, .74); margin-top: 3px; }
+.cover-label small { display: block; font-size: .76rem; color: var(--photo-soft); margin-top: 3px; }
 
 /* 10. PRODUCT CARDS ===================================================== */
 .product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -415,7 +459,8 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
   font-size: .72rem; padding: 6px 10px; border-radius: var(--radius-pill); font-weight: 700; letter-spacing: .06em;
 }
 .product-photo {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center;
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center;
+  padding: 18px;
   transition: transform .45s var(--ease);
 }
 .product-card:hover .product-photo { transform: scale(1.05); }
@@ -429,8 +474,8 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 .product-visual:hover .view-hint, .product-visual:focus-visible .view-hint { opacity: 1; transform: translate(-50%, 0); }
 /* Keeps the renders honest once real stock photos start replacing them. */
 .photo-note {
-  position: absolute; right: 12px; bottom: 12px; z-index: 2; background: rgba(8, 8, 12, .62);
-  color: #e6e6ee; font-size: .72rem; font-weight: 600; padding: 4px 9px; border-radius: var(--radius-pill);
+  position: absolute; right: 12px; bottom: 12px; z-index: 2; background: var(--scrim);
+  color: var(--photo-soft); font-size: .72rem; font-weight: 600; padding: 4px 9px; border-radius: var(--radius-pill);
   backdrop-filter: blur(4px);
 }
 .product-info { padding: 19px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
@@ -443,8 +488,23 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 .price-on-request::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 /* Shown only when a listing carries a configured price; otherwise the card
    keeps its "Price on request" line. */
-.product-price { font-size: 1.12rem; font-weight: 700; font-family: var(--font-display); color: var(--flame); }
+.product-price { font-size: 1.12rem; font-weight: 700; font-family: var(--font-display); color: var(--price); }
 .product-price small { font-size: .68rem; font-weight: 600; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-left: 6px; }
+/* Optional offer. Neither of these ever renders unless the shop's own
+   original_price / discount columns carried a figure that survived the checks
+   in js/catalog.js, so a struck price here is always the shop's claim. */
+.was { font-size: .78em; font-weight: 600; color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.discount-badge {
+  position: absolute; right: 14px; top: 14px; z-index: 2;
+  background: var(--accent); color: var(--on-accent);
+  font-size: .7rem; font-weight: 800; letter-spacing: .04em;
+  padding: 5px 10px; border-radius: var(--radius-pill); box-shadow: var(--shadow-sm);
+}
+.pd-discount {
+  background: var(--tint); color: var(--accent); border: 1px solid var(--accent-line);
+  font-size: .72rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: var(--radius-pill);
+}
 
 /* 11. DEVICE FINDER ==================================================== */
 .finder-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 18px; font-size: .82rem; }
@@ -469,11 +529,11 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
 }
 .brand-tile:hover .brand-photo { transform: scale(1.06); }
 .brand-label {
-  position: relative; margin-top: auto; padding: 32px 14px 13px; color: #fff;
-  background: linear-gradient(to top, rgba(6, 6, 10, .92), rgba(6, 6, 10, .5) 55%, transparent);
+  position: relative; margin-top: auto; padding: 32px 14px 13px; color: var(--on-photo);
+  background: linear-gradient(to top, var(--scrim-strong), var(--scrim) 55%, transparent);
 }
 .brand-label b { display: block; font-family: var(--font-display); font-size: 1.02rem; }
-.brand-label small { display: block; font-size: .74rem; color: rgba(255, 255, 255, .74); margin-top: 2px; }
+.brand-label small { display: block; font-size: .74rem; color: var(--photo-soft); margin-top: 2px; }
 .active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 14px; }
 .active-filters:empty { display: none; }
 .af-chip {
@@ -510,22 +570,20 @@ html[data-theme="light"] .phone { background: #14141c; border-color: #d7d3e2; }
   transition: transform var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 .timeline-step.is-in::before { background: var(--accent); transform: scale(1.08); }
-.timeline-step span { color: var(--flame); font-size: .74rem; font-weight: 700; letter-spacing: .1em; display: block; margin-bottom: 8px; }
+.timeline-step span { color: var(--price); font-size: .74rem; font-weight: 700; letter-spacing: .1em; display: block; margin-bottom: 8px; }
 .timeline-step h3 { margin-bottom: 7px; }
 .timeline-step p { color: var(--muted); font-size: .84rem; }
 /* 14. CTA BAND ========================================================== */
 .cta {
   margin: var(--s-6) 5% var(--s-8); padding: var(--s-6); border-radius: var(--radius-xl);
-  background: linear-gradient(120deg, #5b21b6, #191522 68%); color: #fff;
+  background: var(--band); color: var(--on-band);
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); position: relative; overflow: hidden;
 }
-html[data-theme="light"] .cta { background: linear-gradient(120deg, #6d28b8, #2a1c46 70%); }
-.cta::after { content: ""; position: absolute; right: -80px; top: -120px; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, .14), transparent 65%); }
+.cta::after { content: ""; position: absolute; right: -80px; top: -120px; width: 320px; height: 320px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--on-band) 14%, transparent), transparent 65%); }
 .cta > div { position: relative; z-index: 1; }
 .cta h2 { font-size: clamp(1.8rem, 3.2vw, 2.8rem); letter-spacing: -.03em; margin: 10px 0; }
-.cta .eyebrow { color: #d9c6ff; }
-html[data-theme="light"] .cta .eyebrow { color: #e2d3ff; }
-.cta p { color: #cfc6dd; }
+.cta .eyebrow { color: var(--band-accent); }
+.cta p { color: var(--band-soft); }
 .cta .hero-actions { margin: 0; justify-content: flex-end; }
 
 /* 15. PAGE HERO + SHOP CONTROLS ========================================= */
@@ -535,7 +593,20 @@ html[data-theme="light"] .cta .eyebrow { color: #e2d3ff; }
 .shop-controls { padding: 22px var(--gutter); display: flex; align-items: center; position: sticky; top: var(--header-h); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(16px); z-index: 10; border-bottom: 1px solid var(--line); }
 .search-box { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 0 15px; width: min(420px, 100%); color: var(--muted); transition: border-color var(--dur) var(--ease); }
 .search-box:focus-within { border-color: var(--accent-line); }
+/* Arriving from the header search icon (shop.html#search) lights the box up
+   even when the browser will not hand it focus. */
+.search-box:target { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-soft); }
 .search-box input { background: transparent; border: 0; outline: 0; color: var(--text); padding: 12px 0; width: 100%; }
+.search-clear {
+  visibility: hidden; flex: none; display: grid; place-items: center; width: 26px; height: 26px;
+  padding: 0; border: 0; border-radius: 50%; background: var(--surface-2); color: var(--muted);
+  font-size: .8rem; line-height: 1; cursor: pointer;
+  transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+/* The button follows the input in the label, so :placeholder-shown alone can
+   tell us whether there is anything to clear - no extra state to keep in sync. */
+.search-box input:not(:placeholder-shown) + .search-clear { visibility: visible; }
+.search-clear:hover { background: var(--accent-soft); color: var(--accent); }
 .shop-top { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .8rem; margin-bottom: var(--s-4); gap: var(--s-3); flex-wrap: wrap; }
 
 /* 16. FORMS ============================================================== */
@@ -555,8 +626,8 @@ html[data-theme="light"] .cta .eyebrow { color: #e2d3ff; }
 .form-note { color: var(--muted); font-size: .74rem; text-align: center; margin-top: 12px; line-height: 1.5; }
 .form-status { border-radius: var(--radius-sm); padding: 14px 16px; font-size: .85rem; font-weight: 600; display: none; align-items: center; gap: 10px; margin-top: 14px; }
 .form-status.is-visible { display: flex; }
-.form-status.is-success { background: rgba(99, 211, 145, .12); border: 1px solid rgba(99, 211, 145, .4); color: var(--ok); }
-.form-status.is-error { background: rgba(242, 114, 110, .12); border: 1px solid rgba(242, 114, 110, .4); color: var(--danger); }
+.form-status.is-success { background: color-mix(in srgb, var(--ok) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); color: var(--ok); }
+.form-status.is-error { background: color-mix(in srgb, var(--danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); }
 .form-status.is-info { background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--accent); }
 .spinner { width: 15px; height: 15px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -621,8 +692,8 @@ html[data-theme="light"] .cta .eyebrow { color: #e2d3ff; }
   z-index: 120; font-size: .84rem; font-weight: 600; box-shadow: var(--shadow); line-height: 1.4;
 }
 .toast.show { transform: none; opacity: 1; }
-.toast.is-warn { background: var(--warn); color: #201500; }
-.toast.is-error { background: var(--danger); color: #fff; }
+.toast.is-warn { background: color-mix(in srgb, var(--warn) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent); color: var(--text); }
+.toast.is-error { background: color-mix(in srgb, var(--danger) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent); color: var(--text); }
 body.has-bar .toast, body.has-bar .back-top { bottom: calc(var(--bar-h) + 18px); }
 
 /* 22. SCROLL REVEAL ==================================================== */
@@ -739,7 +810,7 @@ html.js .js-loading { display: none; }
    button and the category label stay where the visitor put them. */
 .dialog {
   position: fixed; inset: 0; z-index: 130; display: grid; place-items: center; padding: 20px;
-  background: rgba(6, 6, 10, .72); backdrop-filter: blur(6px);
+  background: var(--scrim); backdrop-filter: blur(6px);
   animation: fade-in .2s var(--ease);
 }
 .dialog-panel {
@@ -826,9 +897,12 @@ html.js .js-loading { display: none; }
 .pd-fits { display: flex; align-items: center; gap: 8px; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex-wrap: wrap; }
 .pd-fits b { font-weight: 700; color: var(--text-soft); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-pill); padding: 4px 11px; font-size: .74rem; letter-spacing: 0; text-transform: none; }
 .pd-price-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-block: 2px; }
-.pd-price { font-family: var(--font-display); font-size: 2rem; font-weight: 700; letter-spacing: -.02em; color: var(--flame); }
+.pd-price { font-family: var(--font-display); font-size: 2rem; font-weight: 700; letter-spacing: -.02em; color: var(--price); }
 .pd-price.is-request { font-family: var(--font-body); font-size: 1.05rem; font-weight: 700; color: var(--muted); }
 .pd-price-note { font-size: .74rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+/* The struck list price reads as a pairing to the big selling price, so it
+   keeps its own size rather than the card's relative one. */
+.pd-price-row .was { font-size: 1.05rem; }
 .pd-status {
   display: inline-flex; align-items: center; gap: 8px; justify-self: start;
   padding: 7px 13px; border-radius: var(--radius-pill); border: 1px solid var(--line);
@@ -872,7 +946,7 @@ html.js .js-loading { display: none; }
 /* --- full-bleed photo viewer ------------------------------------------ */
 .pd-zoom {
   position: fixed; inset: 0; z-index: 3; display: grid; place-items: center; overflow: hidden;
-  background: rgba(6, 6, 10, .94); touch-action: none; animation: fade-in .18s var(--ease);
+  background: var(--scrim-strong); touch-action: none; animation: fade-in .18s var(--ease);
 }
 .pd-zoom-img {
   max-width: 92vw; max-height: 82vh; object-fit: contain; display: block;
@@ -883,17 +957,17 @@ html.js .js-loading { display: none; }
   position: absolute; left: 0; right: 0; bottom: 20px; display: flex; align-items: center;
   justify-content: center; gap: 16px; padding: 0 16px;
 }
-.pd-zoom-hint { font-size: .74rem; color: rgba(255, 255, 255, .66); }
+.pd-zoom-hint { font-size: .74rem; color: var(--photo-soft); }
 .pd-zoom-tools {
   display: flex; gap: 6px; padding: 6px; border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .18); backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--on-photo) 10%, transparent); border: 1px solid color-mix(in srgb, var(--on-photo) 18%, transparent); backdrop-filter: blur(8px);
 }
 .pd-zoom-btn {
   min-width: 40px; height: 40px; padding: 0 12px; border-radius: var(--radius-pill);
-  color: #fff; font-size: .95rem; font-weight: 700; background: transparent;
+  color: var(--on-photo); font-size: .95rem; font-weight: 700; background: transparent;
   transition: background-color var(--dur) var(--ease);
 }
-.pd-zoom-btn:hover { background: rgba(255, 255, 255, .18); }
+.pd-zoom-btn:hover { background: color-mix(in srgb, var(--on-photo) 18%, transparent); }
 .pd-zoom-btn.is-close { font-size: 1.3rem; }
 body.dialog-open { overflow: hidden; }
 

@@ -256,6 +256,7 @@
    * ------------------------------------------------------------------ */
   function wireControls() {
     var search = byId("searchInput");
+    var clear = byId("searchClear");
     if (search && !search.dataset.wired) {
       search.dataset.wired = "1";
       var timer = null;
@@ -266,6 +267,17 @@
           render();
         }, 140);
       });
+      if (clear) {
+        clear.addEventListener("click", function () {
+          search.value = "";
+          state.query = "";
+          render();
+          search.focus();
+        });
+      }
+      /* The header's search icon points at shop.html#search: the browser has
+         already jumped to the box, so hand over a focused field. */
+      if (location.hash === "#search") search.focus({ preventScroll: true });
     }
 
     /* The retry button is re-created on every paint, so the click is caught
@@ -625,6 +637,8 @@
     var priceRow = el("div", "pd-price-row");
     if (product.price) {
       priceRow.appendChild(el("span", "pd-price", product.price));
+      if (product.wasLabel) priceRow.appendChild(el("span", "was", product.wasLabel));
+      if (product.discount) priceRow.appendChild(el("span", "pd-discount", product.discount + "% off"));
       priceRow.appendChild(el("span", "pd-price-note", "confirm at the counter"));
     } else {
       priceRow.appendChild(el("span", "pd-price is-request",

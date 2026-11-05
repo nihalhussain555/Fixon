@@ -86,7 +86,7 @@
   .nav a:not(.btn) { padding: 13px 12px; border-radius: var(--radius-xs); font-size: 1rem; color: var(--text); }
   .nav a:not(.btn):hover, .nav a:not(.btn).active { background: var(--accent-soft); }
   .nav a::after { display: none; }
-  .nav-scrim { display: block; position: fixed; inset: 0; top: var(--header-h); background: rgba(5, 5, 10, .55); opacity: 0; visibility: hidden; transition: opacity .22s var(--ease), visibility .22s var(--ease); z-index: 65; }
+  .nav-scrim { display: block; position: fixed; inset: 0; top: var(--header-h); background: var(--scrim); opacity: 0; visibility: hidden; transition: opacity .22s var(--ease), visibility .22s var(--ease); z-index: 65; }
   .nav-scrim.is-open { opacity: 1; visibility: visible; }
   .nav-cta-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
   .nav-cta-group .btn { font-size: .85rem; padding: 12px 10px; }
@@ -108,7 +108,7 @@
   .product-grid, .accessory-grid{ grid-template-columns: 1fr; }
   /* Banner becomes a taller, text-led panel so the copy stays readable. */
   .banner-slider { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); }
-  .banner::after { background: linear-gradient(to top, rgba(6, 6, 10, .92) 26%, rgba(6, 6, 10, .5) 62%, rgba(6, 6, 10, .12) 100%); }
+  .banner::after { background: linear-gradient(to top, var(--scrim-strong) 26%, var(--scrim) 62%, transparent 100%); }
   .banner-copy { align-content: end; height: 100%; padding: 20px 18px; gap: 8px; }
   .banner-copy p { font-size: .88rem; }
   .banner-nav { width: 34px; height: 34px; font-size: 1.2rem; }

@@ -1,6 +1,6 @@
 /* Loaded synchronously in <head> so the saved theme is applied before paint.
- * Light is the FIXON default (white/purple/orange storefront); dark is
- * opt-in and remembered per visitor.
+ * FIXON ships a white/teal light storefront and a dark-slate/teal night mode;
+ * the visitor's stored choice wins, then the system preference, then light.
  * Also flags reduced-motion preferences on <html> before any animation runs. */
 (function () {
   var root = document.documentElement;

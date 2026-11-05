@@ -64,16 +64,19 @@ _removed-repair/      archived repair/services pages (not linked anywhere)
 `data/catalog.csv` — see **GOOGLE-SHEETS.md**. Header line:
 
 ```
-name,price,description,image,category,active,featured,brand,model,url,images,colors,sizes,features,specs,stock
+name,price,description,image,category,active,featured,brand,model,url,images,colors,sizes,features,specs,stock,original_price,discount
 ```
 
 Add one line per product, set `active` to `TRUE` to show it. Nothing else has
-to change; the shop pages pick it up on the next read. The last six columns are
-optional and only fill the product view (the panel that opens when a product is
-tapped): extra photos, colour chips, size chips, a feature list, a
-specification table and one status line. **An empty cell renders as nothing** —
-the site never invents a colour, a spec or an availability claim, and a sheet
-still written to the first ten columns loads exactly as before.
+to change; the shop pages pick it up on the next read. The last eight columns are
+optional: six of them fill the product view (the panel that opens when a product
+is tapped) with extra photos, colour chips, size chips, a feature list, a
+specification table and one status line, while `original_price` and `discount`
+put a struck list price and an "OFF" badge on the cards and in that panel —
+shown only when the shop typed them and they check out against `price`.
+**An empty cell renders as nothing** —
+the site never invents a colour, a spec, a discount or an availability claim, and
+a sheet still written to the first ten columns loads exactly as before.
 
 **The file ships with thirteen rows whose names all start with `EXAMPLE -`**
 (twelve active, one marked `active=FALSE` to show how hiding a row works).

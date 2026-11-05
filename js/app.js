@@ -142,7 +142,9 @@
     if (!btn) return;
     var sync = function () {
       var light = document.documentElement.getAttribute("data-theme") === "light";
-      btn.textContent = light ? "☾" : "☼";
+      /* The glyph names the theme you are looking at, not the one you are
+       * about to get: sun in the light storefront, moon in the dark one. */
+      btn.textContent = light ? "☼" : "☾";
       btn.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
       btn.setAttribute("title", btn.getAttribute("aria-label"));
     };
