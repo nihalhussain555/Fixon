@@ -50,7 +50,13 @@
     var card = el("article", "product-card reveal");
     card.setAttribute("data-product-id", p.id);
 
-    var visual = el("div", "product-visual");
+    /* The whole picture is the details button: clicking a product opens the
+       dialog built by js/shop.js, which is loaded on every page that shows
+       product cards. */
+    var visual = el("button", "product-visual");
+    visual.type = "button";
+    visual.setAttribute("data-details", p.id);
+    visual.setAttribute("aria-label", "View details for " + p.name);
     if (p.categoryLabel) visual.appendChild(el("span", "product-tag", p.categoryLabel));
 
     var img = el("img", "product-photo");
@@ -66,13 +72,16 @@
     visual.appendChild(img);
 
     if (!p.image) visual.appendChild(el("span", "photo-note", "Category illustration"));
+    visual.appendChild(el("span", "view-hint", "View details"));
     card.appendChild(visual);
 
     var info = el("div", "product-info");
     card.appendChild(info);
     var fitment = fitmentText(p);
     if (fitment) info.appendChild(el("small", null, fitment));
-    info.appendChild(el("h3", null, p.name));
+    var title = el("h3", null, p.name);
+    title.setAttribute("data-details", p.id);
+    info.appendChild(title);
 
     if (p.price) {
       var price = el("p", "product-price", p.price);
@@ -87,26 +96,12 @@
     var actions = el("div", "card-actions");
 
     /* Buying on this site means adding to an order list that is sent to FIXON
-       on WhatsApp, so that is the primary action on a product. */
+       on WhatsApp, so that is the only button on a card. Everything else -
+       full description, fitment, asking - lives in the details dialog. */
     var add = el("button", "btn btn-sm btn-primary", "Add to order");
     add.type = "button";
     add.setAttribute("data-add", p.id);
     actions.appendChild(add);
-
-    /* Details opens the dialog built by js/shop.js, and that dialog only exists
-       on a page carrying #productDialog. Without it the button would sit there
-       doing nothing, so it is not rendered at all. */
-    if (document.getElementById("productDialog")) {
-      var details = el("button", "btn btn-sm btn-secondary", "Details");
-      details.type = "button";
-      details.setAttribute("data-details", p.id);
-      actions.appendChild(details);
-    }
-
-    var ask = el("a", "wa-mini", "Ask on WhatsApp");
-    ask.href = "#";
-    ask.setAttribute("data-product-wa", p.id);
-    actions.appendChild(ask);
 
     if (p.link) {
       var more = el("a", "text-link", "More details");
@@ -167,30 +162,12 @@
     });
     syncAddButtons(container);
 
-    container.querySelectorAll("[data-details]").forEach(function (button) {
-      var product = byId[button.getAttribute("data-details")];
+    container.querySelectorAll("[data-details]").forEach(function (opener) {
+      var product = byId[opener.getAttribute("data-details")];
       if (!product) return;
-      button.addEventListener("click", function () {
+      opener.addEventListener("click", function () {
         if (typeof window.fixonProductModal === "function") window.fixonProductModal(product, list);
       });
-    });
-
-    container.querySelectorAll("[data-product-wa]").forEach(function (link) {
-      var product = byId[link.getAttribute("data-product-wa")];
-      if (!product) return;
-      var href = U.whatsappUrl("product", {
-        product: product.name + (fitmentText(product) ? " (" + fitmentText(product) + ")" : "")
-      });
-      if (href) {
-        link.href = href;
-        link.target = "_blank";
-        link.rel = "noopener";
-      } else {
-        link.classList.add("is-unconfigured");
-        link.setAttribute("aria-disabled", "true");
-        link.title = "FIXON.whatsappNumber is not set in js/config.js";
-        link.href = "#";
-      }
     });
 
     /* Freshly rendered cards animate in like the rest of the page. */

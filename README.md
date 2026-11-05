@@ -1,9 +1,11 @@
-# FIXON — mobile repair, services & accessories
+# FIXON — mobile covers, gifts & accessories
 
-A static website for an independent phone-repair shop: services, a repair
-booking wizard, a device finder, and a **product shop fed by one plain-text
-list** (`data/catalog.csv`). Visitors collect accessories in an order list and
-send it to the shop on WhatsApp.
+A static website for an independent accessories shop: mobile covers, tempered
+glass, pop sockets, mugs, bottles, keychains, mousepads and customised gifts,
+with a device-fitment finder and a **product shop fed by one plain-text
+list** (`data/catalog.csv`). Visitors collect items in an order list and
+send it to the shop on WhatsApp. (The old repair/services pages are archived
+in `_removed-repair/`.)
 
 There is **no backend, no framework, no build step and no database.** HTML,
 CSS and vanilla JavaScript only, so it deploys on GitHub Pages, Vercel or
@@ -22,8 +24,8 @@ it.
   page, no stock counter and no account. The order list lives in the visitor's
   browser and becomes a WhatsApp message only when they press Send.
 - **No data leaves the device** until the visitor sends a message themselves.
-  The booking and contact forms prepare text locally and open WhatsApp or
-  copy-to-clipboard; they do not submit anything, and they say so on screen.
+  The contact form prepares text locally and opens WhatsApp or
+  copy-to-clipboard; it does not submit anything, and it says so on screen.
 - **Nothing is real-time.** The product list is re-read every
   `refreshMinutes` (30), and a published CSV can lag behind an edit, so the
   pages show when the data was read rather than claiming it is live.
@@ -31,36 +33,30 @@ it.
 ## Files
 
 ```
-index.html            home: hero slider, accessories (live product strip + category
-                      tiles), cover showcase, then services and the quote wizard
+index.html            home: hero slider, category tiles, live product strip,
+                      cover showcase, brand fitment strip, how-ordering-works
 shop.html             the product grid: one search box, Details dialog, order tray
 accessories.html      category tiles, each one a filtered link into shop.html
-services.html         repair services + the counter-service strip
-repairs.html          symptom-led repair information and a quote start
-brands.html           find by device brand
-models.html           find by model / series (deep-linked from brands.html)
-booking.html          repair booking wizard (prepares a message, sends nothing)
+brands.html           find covers and glass by device brand
 contact.html          phone, WhatsApp, address, hours, map, message form (name,
                       contact, topic, device, best time to reply, message)
 about.html            who FIXON is, process, FAQs
-css/style.css         design system, sections 1-29 (29 is the order tray)
-css/responsive.css    1200 / 1024 / 860 / 720 / 560 / 420 / 380 + coarse pointer
+css/style.css         design system, sections 1-27 (26 is the product dialog, 27 the order tray)
+css/responsive.css    1200 / 1024 / 900 / 860 / 720 / 560 / 420 / 380 + coarse pointer
 js/config.js          ALL business values + the shared helpers (window.FIXON)
 js/catalog.js         reads and validates the shop's list; one request per source
 js/products.js        a row -> a card, safely; the Add to order button
 js/order.js           the order list and the WhatsApp message it composes
 js/shop.js            search, deep-link pills, owner notes, the Details dialog
 js/categories.js      accessories.html tiles
-js/counter.js         services.html counter strip
-js/finder.js          brands.html / models.html
-js/booking.js         booking wizard
+js/finder.js          brands.html brand tiles
 js/contact.js         contact composer
-js/quote.js           quote entry points
-js/theme.js           dark/light, remembered per device
+js/theme.js           light/dark, remembered per device (light is the default)
 js/app.js             hydration, nav, reveal, toasts, photo fallbacks
 data/catalog.csv      the shop's product list (currently labelled EXAMPLE rows - see below)
-images/               covers, services, accessories, brands, banners, before-after
+images/               covers, accessories, brands, banners
 images/products/      drop a photo here and type only its file name in the sheet
+_removed-repair/      archived repair/services pages (not linked anywhere)
 ```
 
 ## The one file the owner edits
@@ -68,11 +64,16 @@ images/products/      drop a photo here and type only its file name in the sheet
 `data/catalog.csv` — see **GOOGLE-SHEETS.md**. Header line:
 
 ```
-name,price,description,image,category,active,featured,brand,model,url
+name,price,description,image,category,active,featured,brand,model,url,images,colors,sizes,features,specs,stock
 ```
 
 Add one line per product, set `active` to `TRUE` to show it. Nothing else has
-to change; the shop pages pick it up on the next read.
+to change; the shop pages pick it up on the next read. The last six columns are
+optional and only fill the product view (the panel that opens when a product is
+tapped): extra photos, colour chips, size chips, a feature list, a
+specification table and one status line. **An empty cell renders as nothing** —
+the site never invents a colour, a spec or an availability claim, and a sheet
+still written to the first ten columns loads exactly as before.
 
 **The file ships with thirteen rows whose names all start with `EXAMPLE -`**
 (twelve active, one marked `active=FALSE` to show how hiding a row works).
@@ -87,7 +88,7 @@ work:
 
 ```
 cover-red.jpg                     a file you uploaded to images/products/
-images/accessories/chargers.jpg   a path inside this site
+images/accessories/mugs.jpg       a path inside this site
 https://cdn.example.com/a.jpg     a picture hosted elsewhere (https only)
 ```
 
@@ -104,14 +105,14 @@ the product-list address.
 
 | to change | key |
 |---|---|
-| phone / WhatsApp | `phoneDial`, `whatsappNumber` (line 44-45) — **one** number, never hard-coded elsewhere |
+| phone / WhatsApp | `phoneDial`, `whatsappNumber` — **one** number, never hard-coded elsewhere |
 | email, address, hours, map | `email`, `addressLine`, `openingHours`, `mapsUrl` |
-| product list address | `catalog.csvUrl` (line 291) |
+| product list address | `catalog.csvUrl` |
 | where a bare image file name points | `catalog.imageFolder` |
 | how often pages re-read it | `catalog.refreshMinutes` |
 | currency and the no-price wording | `currencySymbol`, `priceNote` |
 | message templates | `messages` (each `{token}` is filled at click time) |
-| categories, brands, services | `productCategories`, `deviceBrands`, `services`, `counterServices` |
+| categories and brands | `productCategories`, `deviceBrands` |
 
 Any value still starting with `SET_ME_` is deliberately treated as **not
 configured**: its button goes muted, explains why in its tooltip, and a toast
@@ -177,7 +178,9 @@ out, and the phone/WhatsApp links dial the shop.
 
 360, 375, 390, 414, 768, 1024, 1440 and 1920. The order tray is a right-hand
 panel above 720px and a bottom sheet below it, parked above the sticky
-Call / WhatsApp / Book bar so both stay reachable.
+Call / WhatsApp / Book bar so both stay reachable. The product dialog is two
+columns (photo left, information right) above 900px, one column below it, and
+its Add / WhatsApp buttons stick to the bottom of the panel on phones.
 
 ## Safety rules the code follows
 

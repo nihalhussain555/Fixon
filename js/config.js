@@ -1,5 +1,9 @@
 /* FIXON - central business configuration.
  *
+ * FIXON is an accessories-only storefront: covers, protectors, pop sockets,
+ * lifestyle products and personalised gifts. Repair and service booking do
+ * not live here any more - if they ever return, they need their own pages.
+ *
  * Every page reads contact details, WhatsApp links and the interactive
  * option lists from this file. Change a value here once - never hard-code
  * it inside HTML or other scripts.
@@ -8,10 +12,11 @@
  * buttons that depend on it are disabled with an explanatory toast instead
  * of sending the visitor to a fake number or an empty map.
  *
- * PRODUCT DATA IS NOT IN THIS FILE ANY MORE.
- * Products come from a spreadsheet the shop owner edits - see section 10 and
- * GOOGLE-SHEETS.md. Prices, descriptions, images and categories in this file
- * are never invented: a price only appears when the sheet supplies one.
+ * PRODUCT DATA IS NOT IN THIS FILE.
+ * Products come from a spreadsheet the shop owner edits - see the catalog
+ * section and GOOGLE-SHEETS.md. Prices, descriptions, images and categories
+ * in this file are never invented: a price only appears when the sheet
+ * supplies one.
  */
 (function () {
   var PLACEHOLDER = /^SET_ME/;
@@ -21,14 +26,13 @@
      * 1. IDENTITY
      * ------------------------------------------------------------------ */
     name: "FIXON",
-    tagline: "Mobile Repair, Services & Accessories",
+    tagline: "Mobile Covers, Gifts & Accessories",
     /* The words below feed the share card and the structured data. The big
-     * headline a visitor sees is written in index.html and accessories.html,
-     * because it is split across lines and styled per word. Keep them in step
-     * if you change one. */
-    heroHeadline: "Everything Your Phone Needs.",
+     * headline a visitor sees is written in index.html, because it is split
+     * across lines and styled per word. Keep them in step if you change one. */
+    heroHeadline: "Protect It. Personalise It.",
     heroSupport:
-      "Explore quality mobile accessories and everyday mobile services.",
+      "Mobile covers, tempered glass, pop sockets and personalised gifts at FIXON.",
 
     /* Social sharing. Set both to the live values once the site has a domain:
      * share.url  = the exact page address, e.g. "https://fixon.example/"
@@ -38,12 +42,12 @@
     share: { url: "SET_ME_SITE_URL", image: "SET_ME_SHARE_IMAGE_URL" },
 
     /* ------------------------------------------------------------------ *
-     * 2. CONTACT - TODO: replace every SET_ME_* value with real data
+     * 2. CONTACT
      * ------------------------------------------------------------------ */
-    phoneDisplay: "+91 7306024668", // e.g. "+91 98765 43210"
+    phoneDisplay: "+91 7306024668",
     phoneDial: "7306024668", // digits only, with country code
     whatsappNumber: "7306024668", // digits only, no "+" or spaces
-    email: "fixoninnovative@gmail.com", // e.g. "care@fixon.example"
+    email: "fixoninnovative@gmail.com",
     addressLine: "Kerala Malappuram district", // street / building line
     addressCity: "MELATTUR",
     addressRegion: "India",
@@ -62,9 +66,7 @@
      * 4. HOURS / SOCIAL
      * ------------------------------------------------------------------ */
     openingHours: [
-      { days: "Monday - Sunday", time: "8:00 AM - 10:00 PM" },
-      // { days: "Saturday", time: "8:00 AM - 10:00 PM" },
-      // { days: "Sunday", time: "8:00 AM - 10:00 PM" }
+      { days: "Monday - Sunday", time: "8:00 AM - 10:00 PM" }
     ],
     socialLinks: {}, // e.g. { instagram: "https://instagram.com/...", facebook: "https://..." }
 
@@ -74,14 +76,9 @@
      * business name; {customer} is the visitor's own name.
      * ------------------------------------------------------------------ */
     messages: {
-      general: "Hi {shop}, I would like to know more about your mobile service.",
-      quote:
-        "Hi {shop}, I need help with my {device} phone. The issue is {problem}. I would like to know about the repair.",
-      service: "Hi {shop}, I am interested in the {service} service. Could you guide me?",
+      general: "Hi {shop}, I would like to know more about your accessories and gifts.",
       accessory: "Hi {shop}, I am interested in {category}. Is it available?",
       product: "Hi {shop}, I am interested in {product}. Could you tell me if it suits my phone and what it costs?",
-      booking:
-        "Hi {shop}, I want to book a repair.\n\nName: {customer}\nPhone: {phone}\nDevice: {brand} {model}\nService: {service}\nPreferred: {date} at {time}\nIssue: {issue}",
       contact:
         "Hi {shop}, I have a question about {topic}.\n\n{message}\n\nDevice: {device}\nBest time to reply: {when}\n\n- {customer} ({contact})",
 
@@ -91,104 +88,39 @@
          the shop's wording lives. Nothing is submitted anywhere: WhatsApp
          opens with this text and the visitor sends it themselves. */
       order:
-        "Hi {shop}, I would like to order these accessories:\n\n{items}\n\n{priced}\n{extras}Please confirm availability, the total and how I should pay."
+        "Hi {shop}, I would like to order these items:\n\n{items}\n\n{priced}\n{extras}Please confirm availability, the total and how I should pay."
     },
 
     /* ------------------------------------------------------------------ *
-     * 6. INTERACTIVE LISTS
-     * Repair request wizard + booking dropdowns are driven from here.
-     * ------------------------------------------------------------------ */
-    deviceTypes: [
-      { id: "iphone", label: "iPhone", icon: "◆" },
-      { id: "android", label: "Android", icon: "▤" }
-    ],
-
-    problems: [
-      "Broken Screen",
-      "Battery",
-      "Charging",
-      "Camera",
-      "Speaker",
-      "Software",
-      "Water Damage",
-      "Other"
-    ],
-
-    brands: [
-      "Apple",
-      "Samsung",
-      "OnePlus",
-      "Vivo",
-      "OPPO",
-      "Realme",
-      "Xiaomi",
-      "Motorola",
-      "Google Pixel",
-      "Nothing",
-      "Other Android"
-    ],
-
-    /* The contact form (contact.html) offers these as "what do you need", and
-       the same script builds the model suggestions from deviceBrands below.
-       These are wording choices, not business claims: none of them promises a
-       price, a turnaround time or a part in stock. */
-    contactTopics: [
-      "Repair question",
-      "Ordering accessories",
-      "Cover or glass fitment",
-      "Quote or booking",
-      "Data transfer",
-      "Something else"
-    ],
-
-    /* Free-text window, so no implied promise that FIXON is standing by at a
-       certain hour. The shop replies when it replies. */
-    callbackTimes: ["Any time", "Before noon", "Afternoon", "Evening"],
-
-    services: [
-      { id: "Screen Replacement", icon: "▣", blurb: "Broken or damaged display repair." },
-      { id: "Battery Replacement", icon: "▰", blurb: "Battery replacement and battery-related issues." },
-      { id: "Charging Port", icon: "⌁", blurb: "Charging and connectivity problems." },
-      { id: "Camera Repair", icon: "◉", blurb: "Camera-related hardware problems." },
-      { id: "Speaker & Microphone", icon: "♫", blurb: "Audio and microphone issues." },
-      { id: "Software Service", icon: "⌘", blurb: "Software troubleshooting and optimization." },
-      { id: "iPhone Service", icon: "◆", blurb: "iPhone diagnostics and repair." },
-      { id: "Android Service", icon: "▤", blurb: "Android device repair and troubleshooting." },
-      { id: "Data Transfer", icon: "⇄", blurb: "Move data safely between devices." },
-      { id: "Diagnostics", icon: "⌖", blurb: "Identify device problems before repair." }
-    ],
-
-    /* ------------------------------------------------------------------ *
-     * 7. PRODUCT CATEGORIES (accessories.html -> "Categories")
+     * 6. PRODUCT CATEGORIES (accessories.html -> "Categories")
      * "id" is the slug the shop filter and the photo file use; "match"
      * lists the words a spreadsheet may put in its category column and
      * still count as this category (compared lower-case, as substrings).
      * A category with no live products renders as "not listed yet" instead
      * of disappearing, so the grid stays honest about what is on the sheet.
+     * Photo convention: images/accessories/<photo>.jpg - drop a real photo
+     * under the missing file name and it shows up with no code change.
      * ------------------------------------------------------------------ */
     productCategories: [
-      { id: "cases", label: "Cases & Covers", photo: "phone-covers", match: ["case", "cover", "back cover", "guard"], blurb: "Clear, shockproof, silicone, printed and premium covers for the model you carry." },
-      { id: "protectors", label: "Tempered Glass & Protectors", photo: "tempered-glass", match: ["tempered", "glass", "protector", "screen guard"], blurb: "Screen protection fitted to your model, aligned and bubble-free." },
-      { id: "chargers", label: "Chargers & Adapters", photo: "chargers", match: ["charger", "adapter", "brick", "wall plug"], blurb: "Wall chargers and multi-port bricks matched to your device's charging standard." },
-      { id: "cables", label: "USB & Charging Cables", photo: "cables", match: ["cable", "usb", "lightning", "micro-usb"], blurb: "USB-C, Lightning and Micro-USB cables - the most common cause of slow charging." },
-      { id: "power-banks", label: "Power Banks", photo: "power-banks", match: ["power bank", "powerbank", "battery pack"], blurb: "Portable battery packs for travel, counted at the counter before you buy." },
-      { id: "audio", label: "Earphones & TWS", photo: "earphones", match: ["earphone", "earpod", "tws", "headphone", "buds", "audio"], blurb: "Wired earphones and true wireless buds, with pairing and fit checked first." },
-      { id: "speakers", label: "Bluetooth Speakers", photo: "bluetooth-speakers", match: ["speaker", "bluetooth speaker", "soundbox"], blurb: "Portable speakers for calls, music and video, tested at the counter." },
-      { id: "wearables", label: "Smartwatches & Wearables", photo: "smartwatches", match: ["watch", "band", "fitness", "wearable"], blurb: "Smart bands and watches, plus straps and chargers for the ones you own." },
-      { id: "stands", label: "Stands & Holders", photo: "phone-stands", match: ["stand", "holder", "mount", "tripod"], blurb: "Desk stands, car mounts and holders for hands-free viewing." },
-      { id: "storage", label: "Memory Cards & Storage", photo: "memory-cards", match: ["memory card", "sd card", "microsd", "pendrive", "otg"], blurb: "Memory cards and OTG storage, format-checked before they leave the shop." },
-      { id: "other", label: "Other Accessories", photo: "other", match: ["other", "misc", "general"], blurb: "Cable protectors, SIM tools, cleaning kits and everything else at the counter." }
+      { id: "cases", label: "Mobile Covers", photo: "phone-covers", match: ["case", "cover", "back cover", "printed cover"], blurb: "Clear, shockproof, silicone, printed and premium covers for the model you carry." },
+      { id: "protectors", label: "Tempered Glass", photo: "tempered-glass", match: ["tempered", "glass", "protector", "screen guard"], blurb: "Screen protection fitted to your model, aligned and bubble-free." },
+      { id: "pop-sockets", label: "Pop Sockets & Grips", photo: "pop-sockets", match: ["pop socket", "grip", "ring holder", "stand"], blurb: "Grips, ring holders and pop sockets that double as a stand." },
+      { id: "bottles", label: "Bottles & Sippers", photo: "bottles", match: ["bottle", "sipper", "tumbler", "water"], blurb: "Designer bottles and sipper bottles for school, office and travel." },
+      { id: "mugs", label: "Mugs", photo: "mugs", match: ["mug", "coffee cup", "magic mug"], blurb: "Printed and magic mugs - a photo or a quote makes it personal." },
+      { id: "keychains", label: "Keychains", photo: "keychains", match: ["keychain", "key chain", "keyring", "key ring"], blurb: "Small gifts that travel well: printed, metal and cute-character keychains." },
+      { id: "mousepads", label: "Mousepads & Desk Mats", photo: "mousepads", match: ["mousepad", "mouse pad", "desk mat", "gaming pad"], blurb: "Printed mousepads and desk mats for work and gaming setups." },
+      { id: "custom", label: "Customised Gifts", photo: "other", match: ["custom", "personalised", "personalized", "photo print", "gift"], blurb: "Your photo or your design on a cover, mug, bottle or keychain - ask us how." },
+      { id: "other", label: "Other Accessories", photo: "other", match: ["other", "misc", "general"], blurb: "Everything else at the counter - if it fits a phone or a desk, ask." }
     ],
 
-    bookingTimes: ["10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"],
-
     /* ------------------------------------------------------------------ *
-     * 7. DEVICE FINDER (brands.html / models.html)
-     * "match" is the text the shop filter looks for in a listing's brand,
-     * so it must equal the brand value used in js/products.js.
+     * 7. DEVICE FINDER (brands.html)
+     * Covers and protectors are sold by fitment, so this stays even without
+     * repairs. "match" is the text the shop filter looks for in a listing's
+     * brand, so it must equal the brand value used in the spreadsheet.
      * "models" are fitment labels: they narrow the visible listings only.
-     * Appearing here does NOT claim FIXON stocks a part or cover for that
-     * device - edit this array to match what the shop actually carries.
+     * Appearing here does NOT claim FIXON stocks a cover for that device -
+     * edit this array to match what the shop actually carries.
      * ------------------------------------------------------------------ */
     deviceBrands: [
       { id: "iphone", label: "Apple iPhone", match: "iPhone", models: [
@@ -218,7 +150,8 @@
      * 8. SHOP DISPLAY
      * Prices are business facts, so none are written in code. A listing shows
      * a price only when its spreadsheet row supplies a number; until then the
-     * card keeps showing the text below. See section 10 and GOOGLE-SHEETS.md.
+     * card keeps showing the text below. See the catalog section below and
+     * GOOGLE-SHEETS.md.
      * ------------------------------------------------------------------ */
     currencySymbol: "₹", // shown before a configured price
     priceNote: "Price on request",
@@ -230,14 +163,14 @@
      * and warranty wording because those are FIXON's to confirm.
      * ------------------------------------------------------------------ */
     banners: [
-      { id: "screen", kicker: "SCREEN REPAIR", title: "Cracked display?", text: "Bring the phone in - we diagnose it first, then quote before any work starts.", cta: "Book a screen repair", href: "booking.html?service=Screen%20Replacement" },
-      { id: "covers", kicker: "COVERS & GLASS", title: "Protect what you fixed", text: "Covers, tempered glass and chargers for the model you actually carry.", cta: "Browse covers", href: "brands.html" },
-      { id: "tools", kicker: "REPAIR TOOLS", title: "Workshop parts, checked on the bench", text: "Ask FIXON what is in hand for your device before you order anything online.", cta: "Talk to FIXON", href: "contact.html" }
+      { id: "covers", kicker: "MOBILE COVERS", title: "New designs in store", text: "Clear, shockproof, printed and premium covers for the model you actually carry.", cta: "Browse covers", href: "shop.html?cat=cases" },
+      { id: "custom", kicker: "CUSTOM PRINTS", title: "Your design, on it", text: "A photo, a logo or a quote printed on covers, mugs, bottles and keychains. Ask us what is possible.", cta: "Ask about custom items", href: "contact.html" },
+      { id: "tools", kicker: "GIFTS & EVERYDAY", title: "More than phone gear", text: "Mugs, bottles, keychains and mousepads - pick something that looks as good as it works.", cta: "Browse gifts", href: "accessories.html" }
     ],
 
     /* ------------------------------------------------------------------ *
      * 10. CATALOG SOURCE - the shop's product list
-     * ------------------------------------------------------------------
+     * ----------------------------------------------------------------
      * Products and their prices live in a spreadsheet, NOT in code, so the
      * owner can add, edit, activate or hide an item without a developer.
      *
@@ -265,9 +198,8 @@
      *                    local testing, and as the stale-but-real copy if the
      *                    raw link is ever unreachable. Same file either way:
      *                    data/catalog.csv.
-     *   servicesCsvUrl   Optional second list for services (same columns; an
-     *                    "icon" column is ignored). Leave "" to use the
-     *                    FIXON.services and FIXON.counterServices lists below.
+     *   servicesCsvUrl   Unused since FIXON stopped listing repair services;
+     *                    kept "" so catalog.js skips it.
      *   refreshMinutes   How often an open page re-reads the list. A published
      *                    Google CSV can lag several minutes behind an edit and
      *                    raw.githubusercontent.com caches briefly too, so the
@@ -277,7 +209,7 @@
      *   name, price, description, image, category, active
      * OPTIONAL COLUMNS:
      *   featured  (TRUE puts it first in the home page and category strips)
-     *   brand     (device brand, keeps brands.html / models.html deep links)
+     *   brand     (device brand, keeps brands.html deep links working)
      *   model     (device series or model, same reason)
      *   url       (link to a product page the shop wants to send people to)
      *
@@ -286,7 +218,7 @@
      * published CSV is readable by anyone who has the link and search engines
      * may index it. There is no place for service-account credentials or API
      * keys in frontend code, and this site needs none.
-     * ------------------------------------------------------------------ */
+     * ---------------------------------------------------------------- */
     catalog: {
       csvUrl: "https://raw.githubusercontent.com/nihalhussain555/Fixon/main/data/catalog.csv",
       localFallback: "data/catalog.csv",
@@ -300,32 +232,33 @@
       imageFolder: "images/products"
     },
 
-    /* ------------------------------------------------------------------ *
-     * 11. COUNTER SERVICES (services.html)
-     * Fitting and help services, kept apart from the repair jobs in section
-     * 6 so visitors can tell a repair from a fitting. No price is set here
-     * because that is the shop's to state; "price: null" hides the price
-     * line entirely. Add or delete entries to match what the shop does.
-     * ------------------------------------------------------------------ */
-    counterServices: [
-      { id: "Screen Protector Installation", price: null, photo: "tempered-glass", blurb: "Alignment, dust-off and bubble-free fitting, on the glass you buy here or bring in." },
-      { id: "Accessories Fitting", price: null, photo: "phone-covers", blurb: "Covers, mounts, cables and chargers fitted and tested at the counter before you leave." },
-      { id: "Mobile Cleaning & Maintenance", price: null, photo: "cleaning", blurb: "Port and speaker lint cleared, screen sanitised, case check - useful every few months." },
-      { id: "Phone Setup Assistance", price: null, photo: "data", blurb: "New phone setup, accounts, transfers, permissions and settings done with you." }
+    /* Free-text window, so no implied promise that FIXON is standing by at a
+       certain hour. The shop replies when it replies. */
+    callbackTimes: ["Any time", "Before noon", "Afternoon", "Evening"],
+
+    /* The contact form (contact.html) offers these as "what do you need".
+       These are wording choices, not business claims: none of them promises
+       a price or an item in stock. */
+    contactTopics: [
+      "Ordering accessories",
+      "Cover or glass fitment",
+      "Customised print or gift",
+      "Bulk / gift order",
+      "Price or stock question",
+      "Something else"
     ],
 
     /* NOTE on honesty:
-     * This file deliberately contains no repair prices, no review scores,
-     * no repair counts and no warranty promises. Those are business facts
-     * only FIXON can confirm. Product prices are the same kind of fact, so
-     * they live in the owner's spreadsheet and stay hidden until a row
-     * supplies one.
+     * This file deliberately contains no review scores, no sales counts and
+     * no warranty promises. Those are business facts only FIXON can confirm.
+     * Product prices are the same kind of fact, so they live in the owner's
+     * spreadsheet and stay hidden until a row supplies one.
      */
   };
 
   /* -------------------------------------------------------------------- *
-     * Helpers - exposed on window so every script can reuse them.
-     * -------------------------------------------------------------------- */
+   * Helpers - exposed on window so every script can reuse them.
+   * -------------------------------------------------------------------- */
   function isSet(value) {
     return typeof value === "string" && value.trim() !== "" && !PLACEHOLDER.test(value.trim());
   }

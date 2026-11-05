@@ -6,7 +6,8 @@
    an auto-refresh never stacks up duplicates.
 
    Spreadsheet columns: name, price, description, image, category, active
-   (+ optional featured, brand, model, url). See GOOGLE-SHEETS.md.
+   (+ optional featured, brand, model, url, and the detail columns the product
+   view uses: images, colors, sizes, features, specs, stock). See GOOGLE-SHEETS.md.
 
    Deliberate limits:
    - No secrets here. A browser-side page can never hold a private credential,
@@ -177,7 +178,9 @@
   function headerMap(firstRow) {
     var map = {}, missing = [];
     for (var i = 0; i < firstRow.length; i++) {
-      var key = trim(firstRow[i]).toLowerCase().replace(/[^a-z]/g, "");
+      /* Digits are kept: the optional photo columns are image2, image3..., and
+         stripping them would alias image2 onto the main image column. */
+      var key = trim(firstRow[i]).toLowerCase().replace(/[^a-z0-9]/g, "");
       if (key) map[key] = i;
     }
     for (var r = 0; r < REQUIRED_COLUMNS.length; r++) {
@@ -197,6 +200,90 @@
 
   function isDigit(ch) {
     return ch >= "0" && ch <= "9";
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Optional detail columns
+   * ------------------------------------------------------------------ *
+   * The product view can show more than a name and a price, but only what the
+   * shop actually typed. These columns are read when the sheet has them and
+   * stay empty when it does not - an absent column renders as nothing at all,
+   * never as a guess. REQUIRED_COLUMNS is untouched, so a sheet written to the
+   * old six columns still loads exactly as before.
+   *
+   *   images / gallery    extra photos, separated by ; | or a new line
+   *   image2 ... image6   one extra photo per column, for owners who prefer it
+   *   colors / colour     colour names
+   *   sizes / size        size or variant names
+   *   features / highlights  short selling points
+   *   specs / specifications  "Label: value" pairs
+   *   stock / availability      plain status text, e.g. "In stock at the counter"
+   * ------------------------------------------------------------------ */
+  var LIST_LIMIT = 12;
+  var IMAGE_LIMIT = 8;
+
+  function cellAny(row, map, keys) {
+    for (var i = 0; i < keys.length; i++) {
+      var value = cell(row, map, keys[i]);
+      if (value) return value;
+    }
+    return "";
+  }
+
+  /* Splits on the separators a spreadsheet cell realistically contains, and
+     only falls back to commas when nothing else was used - so "TPU, soft grip"
+     stays one entry when the row uses semicolons elsewhere. */
+  function splitList(raw) {
+    var text = trim(raw);
+    if (!text) return [];
+    var parts = text.split(/[;|\n]+/);
+    if (parts.length < 2) parts = text.split(",");
+    return parts;
+  }
+
+  function textList(raw, maxChars) {
+    var out = [];
+    var parts = splitList(raw);
+    for (var i = 0; i < parts.length && out.length < LIST_LIMIT; i++) {
+      var value = clip(parts[i], maxChars || 60);
+      if (value) out.push(value);
+    }
+    return out;
+  }
+
+  function specList(raw) {
+    var out = [];
+    var parts = splitList(raw);
+    for (var i = 0; i < parts.length && out.length < LIST_LIMIT; i++) {
+      var part = trim(parts[i]);
+      if (!part) continue;
+      /* "Material: TPU" and "Camera bump - raised lip" are both a label and a
+         value; anything else stays one plain line rather than being forced. */
+      var pair = part.match(/^([^:-]{1,34})\s*[:–-]\s*(.+)$/);
+      if (pair) out.push({ label: clip(pair[1], 34), value: clip(pair[2], 90) });
+      else out.push({ label: "", value: clip(part, 90) });
+    }
+    return out;
+  }
+
+  /* One gallery, assembled in order: the image column first, then any extra
+     cells. Duplicates are dropped because owners often repeat the main photo. */
+  function galleryFor(main, fallback, row, map) {
+    var cells = splitList(cellAny(row, map, ["images", "gallery"]));
+    for (var n = 2; n <= 6; n++) {
+      var single = cell(row, map, "image" + n);
+      if (single) cells.push(single);
+    }
+    var out = [], seen = {};
+    if (main) { out.push(main); seen[main] = 1; }
+    for (var i = 0; i < cells.length && out.length < IMAGE_LIMIT; i++) {
+      var url = resolveImage(cells[i]);
+      if (!url || seen[url]) continue;
+      seen[url] = 1;
+      out.push(url);
+    }
+    if (!out.length && fallback) out.push(fallback);
+    return out;
   }
 
   /* ------------------------------------------------------------------ *
@@ -267,6 +354,12 @@
         categoryRaw: clip(rawCategory, 40),
         image: image,
         photo: image || categoryPhoto(categoryId),
+        gallery: galleryFor(image, categoryPhoto(categoryId), row, map),
+        colors: textList(cellAny(row, map, ["colors", "colour", "colours"]), 34),
+        sizes: textList(cellAny(row, map, ["sizes", "size"]), 34),
+        features: textList(cellAny(row, map, ["features", "highlights"]), 90),
+        specs: specList(cellAny(row, map, ["specs", "specifications"])),
+        stock: clip(cellAny(row, map, ["stock", "availability", "status"]), 60),
         brand: clip(cell(row, map, "brand"), 40),
         model: clip(cell(row, map, "model"), 60),
         featured: isActive(cell(row, map, "featured")),

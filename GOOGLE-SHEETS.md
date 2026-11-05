@@ -26,8 +26,8 @@ none.
 3. Add one line **under** the header line, exactly like this:
 
    ```csv
-   name,price,description,image,category,active,featured,brand,model,url
-   Clear Armor Case,1499,"Shockproof back cover for iPhone 15 / 16 series",,cases,TRUE,iPhone,iPhone 15 / 16 series,
+   name,price,description,image,category,active,featured,brand,model,url,images,colors,sizes,features,specs,stock
+   Clear Armor Case,1499,"Shockproof back cover for iPhone 15 / 16 series",,cases,TRUE,iPhone,iPhone 15 / 16 series,,,,,,
    ```
 
    | column | what to type |
@@ -36,11 +36,22 @@ none.
    | `price` | digits only: `1499`. Leave blank for "Price on request" |
    | `description` | one sentence. Wrap it in double quotes if it contains a comma |
    | `image` | a bare file name (`cover-red.jpg`), a path inside this site (`images/products/cover-red.jpg`), or a full `https://` picture link — or leave blank for the category photo |
-   | `category` | one of: `cases, protectors, chargers, cables, power-banks, audio, speakers, wearables, stands, storage, other` |
+   | `category` | one of: `cases, protectors, pop-sockets, bottles, mugs, keychains, mousepads, custom, other` |
    | `active` | `TRUE` to show it, `FALSE` to hide it |
    | `featured` | optional — `TRUE` puts the row first in the home-page and category strips. Mark two or three; the strips fill the rest from ordinary active rows, so a row without this column still shows up |
-   | `brand`, `model` | optional — these drive the "Find by device" pages |
+   | `brand`, `model` | optional — these drive the "Find by device" pages and the "Fits" line on the product view |
    | `url` | optional — a link to a product page you want people to open |
+   | `images` | optional — extra photos for the product view's thumbnails, separated by `;` (see section 3a) |
+   | `colors`, `sizes` | optional — colour and size names, separated by `;` |
+   | `features` | optional — short selling points, one per `;` |
+   | `specs` | optional — `Label: value` details, one per `;` |
+   | `stock` | optional — one plain status line, e.g. `In stock at the counter` |
+
+   The last six are what fills the richer product view. **Leave them blank and
+   the product view simply shows less** — nothing is invented, no "In stock"
+   appears unless you typed it, and no thumbnail strip appears unless you add a
+   second photo. The example rows in `data/catalog.csv` have them filled in so
+   you can see what each one does.
 
 4. Scroll down and press **Commit changes**.
 5. Wait about a minute, then reload the shop page. A reload always asks for the
@@ -98,6 +109,43 @@ you do not maintain two lists.
 - Renaming a product changes its address in a visitor's saved order list. The
   item is then shown to them as "no longer on the online list" — they can still
   send it to you, and you can still understand it.
+
+## 3a. The optional detail columns
+
+These six columns are what the product view — the panel that opens when someone
+taps a product — shows beyond the name, price and description. **Every one of
+them is optional. An empty cell renders as nothing at all.**
+
+Separate the values inside one cell with a semicolon (`;`). A pipe (`|`) or a
+line break inside the cell works too. Only use commas when you have wrapped the
+cell in double quotes, because a bare comma ends the cell.
+
+| column | becomes | example cell |
+|---|---|---|
+| `images` | the thumbnail strip under the main photo. The `image` column is always the first, biggest photo, so list only the extras here | `images/covers/minimal.jpg; images/covers/silicone.jpg` |
+| `colors` | a row of chips under the price, captioned "Colour" | `Clear; Frosted; Smoke` |
+| `sizes` | a row of chips captioned "Size / fits" | `11 / 12; 13 / 14; 15 / 16` |
+| `features` | a ticked list, captioned "Features" | `Raised camera lip; Ports stay open` |
+| `specs` | a label/value table, captioned "Specifications". Write `Label: value` and the part before the colon becomes the label | `Material: Flexible TPU; Thickness: 1.2 mm` |
+| `stock` | one status line next to the price, with a green dot | `In stock at the counter` |
+
+Notes that save a phone call:
+
+- **Photos follow the same rules as the `image` column** (section 3): bare file
+  names, paths inside this site, or full `https://` links. A rejected link is
+  dropped from the strip rather than shown broken, and if every entry is
+  rejected the product view falls back to the category illustration.
+- **If you dislike one long cell**, add columns `image2`, `image3`, … `image6`
+  instead — one photo each, in order. They are read the same way.
+- **`stock` is a claim the visitor sees.** Type what is true on the day
+  ("In stock at the counter", "Made to order - 2 to 3 days"). Leave it blank and
+  the site says nothing about availability rather than guessing — and it never
+  says "sold out", "only 2 left" or a delivery promise you have not made.
+- Long values are trimmed to keep the panel readable: colour and size chips hold
+  about 34 characters each, feature and spec lines about 90, the status line
+  about 60. Write short phrases and put the detail in `description`.
+- The old ten-column sheet keeps working untouched: these columns are read only
+  when they exist, so nothing needs re-typing to stay compatible.
 
 ## 4. Using Google Sheets instead (optional)
 

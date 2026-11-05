@@ -281,25 +281,70 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Detail dialog - built with DOM calls, focus managed by hand
+   * Detail dialog - the product view
+   * ------------------------------------------------------------------ *
+   * One entry point (window.fixonProductModal) is shared by every page that
+   * shows cards, so shop, accessories and home all open the same view.
+   *
+   * Layout: media left (one large photo, thumbnails when the sheet carries
+   * more than one), information right. Below 900px it becomes one column with
+   * the photo first and the buttons pinned above the keyboard-friendly edge.
+   *
+   * Built with createElement + textContent only: the sheet is owner-edited
+   * text, so nothing from it is ever concatenated into markup. Colours, sizes,
+   * features, specs and the availability line come from the sheet's optional
+   * columns and a section is only built when that row actually has values.
    * ------------------------------------------------------------------ */
   var FOCUSABLE = "a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex='-1'])";
+  var CLOSE_MS = 190;              /* the fade-out length in css/style.css */
   var lastFocused = null;
+  var closeTimer = null;
+  var current = { list: null, index: -1 };
 
-  function closeDialog() {
-    var box = byId("productDialog");
-    if (!box) return;
+  function dialogBox() { return byId("productDialog"); }
+
+  function reducedMotion() {
+    return document.documentElement.getAttribute("data-motion") === "reduced";
+  }
+
+  function finishClose(box) {
+    box.classList.remove("is-closing");
     box.hidden = true;
     box.textContent = "";
     document.body.classList.remove("dialog-open");
     if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
     lastFocused = null;
+    current = { list: null, index: -1 };
+  }
+
+  function closeDialog() {
+    var box = dialogBox();
+    if (!box || box.hidden) return;
+    dropZoom(box);
+    if (reducedMotion() || !box.firstElementChild) { finishClose(box); return; }
+    box.classList.add("is-closing");
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(function () { finishClose(box); }, CLOSE_MS);
+  }
+
+  function step(delta) {
+    if (!current.list) return;
+    var next = current.list[current.index + delta];
+    if (next) openDialog(next, current.list, { swap: true });
   }
 
   function dialogKeydown(event) {
-    var box = byId("productDialog");
+    var box = dialogBox();
     if (!box || box.hidden) return;
-    if (event.key === "Escape") { event.preventDefault(); closeDialog(); return; }
+    var zoom = box.querySelector(".pd-zoom");
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (zoom) closeZoom(box); else closeDialog();
+      return;
+    }
+    if (zoom) return;                      /* arrows belong to the photo viewer */
+    if (event.key === "ArrowRight") { event.preventDefault(); step(1); return; }
+    if (event.key === "ArrowLeft") { event.preventDefault(); step(-1); return; }
     if (event.key !== "Tab") return;
     var items = Array.prototype.filter.call(box.querySelectorAll(FOCUSABLE), function (n) {
       return n.offsetParent !== null || n === document.activeElement;
@@ -310,58 +355,304 @@
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
-  function openDialog(product, list) {
-    var box = byId("productDialog");
-    if (!box || !product) return;
-    lastFocused = document.activeElement;
-    box.textContent = "";
+  /* ------------------------------------------------------------------ *
+   * Photo viewer: click or tap the picture, then pinch, scroll or drag
+   * ------------------------------------------------------------------ */
+  var ZOOM_MIN = 1, ZOOM_MAX = 4;
 
-    var panel = el("div", "dialog-panel");
-    panel.setAttribute("role", "dialog");
-    panel.setAttribute("aria-modal", "true");
-    panel.setAttribute("aria-labelledby", "dialogTitle");
-    panel.setAttribute("tabindex", "-1");
+  function dropZoom(box) {
+    var layer = box.querySelector(".pd-zoom");
+    if (!layer) return;
+    if (typeof layer._teardown === "function") layer._teardown();
+    box.removeChild(layer);
+  }
 
-    var head = el("div", "dialog-head");
-    head.appendChild(el("span", "dialog-cat", product.categoryLabel || "Accessory"));
-    var close = el("button", "dialog-close", "×");
-    close.type = "button";
-    close.setAttribute("aria-label", "Close details");
-    close.addEventListener("click", closeDialog);
-    head.appendChild(close);
-    panel.appendChild(head);
+  function closeZoom(box) {
+    var layer = box.querySelector(".pd-zoom");
+    if (!layer) return;
+    var opener = layer._opener;
+    dropZoom(box);
+    if (opener && typeof opener.focus === "function") opener.focus();
+  }
 
-    var body = el("div", "dialog-body");
-    var figure = el("figure", "dialog-figure");
-    var img = el("img", "dialog-photo");
-    img.src = product.photo;
-    img.alt = product.image ? product.name : product.name + " - category illustration";
-    img.width = 760; img.height = 760; img.decoding = "async";
-    if (product.image) img.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
-    figure.appendChild(img);
-    if (!product.image) figure.appendChild(el("figcaption", null, "Category illustration - not a photo of this exact item"));
-    body.appendChild(figure);
+  function openZoom(box, opener, src, alt, canFallback) {
+    dropZoom(box);
 
-    var text = el("div", "dialog-text");
-    var h = el("h2", null, product.name);
-    h.id = "dialogTitle";
-    text.appendChild(h);
+    var layer = el("div", "pd-zoom");
+    layer.setAttribute("role", "dialog");
+    layer.setAttribute("aria-modal", "true");
+    layer.setAttribute("aria-label", "Zoomed photo of " + alt);
+    layer._opener = opener;
 
+    var img = el("img", "pd-zoom-img");
+    img.src = src;
+    img.alt = alt;
+    img.decoding = "async";
+    if (canFallback) img.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
+    layer.appendChild(img);
+
+    var bar = el("div", "pd-zoom-bar");
+    bar.appendChild(el("span", "pd-zoom-hint", "Pinch, scroll or drag - Esc closes"));
+    var tools = el("div", "pd-zoom-tools");
+    [["–", "Zoom out", -1], ["Fit", "Fit to screen", 0], ["+", "Zoom in", 1]].forEach(function (spec) {
+      var b = el("button", "pd-zoom-btn", spec[0]);
+      b.type = "button";
+      b.setAttribute("aria-label", spec[1]);
+      b.addEventListener("click", function () { if (spec[2]) nudge(spec[2]); else reset(); });
+      tools.appendChild(b);
+    });
+    var x = el("button", "pd-zoom-btn is-close", "×");
+    x.type = "button";
+    x.setAttribute("aria-label", "Close zoomed photo");
+    x.addEventListener("click", function () { closeZoom(box); });
+    tools.appendChild(x);
+    bar.appendChild(tools);
+    layer.appendChild(bar);
+
+    var scale = 1, xOff = 0, yOff = 0;
+    var pointers = [], pinch = null, dragged = false;
+
+    function apply() {
+      img.style.transform = "translate3d(" + xOff + "px," + yOff + "px,0) scale(" + scale + ")";
+      layer.classList.toggle("is-zoomed", scale > 1.02);
+    }
+    function clamp(value) { return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value)); }
+    function reset() { scale = 1; xOff = 0; yOff = 0; apply(); }
+    function nudge(direction) {
+      scale = clamp(scale + direction * 0.6);
+      if (scale === 1) { xOff = 0; yOff = 0; }
+      apply();
+    }
+    function distance() {
+      var dx = pointers[0].x - pointers[1].x, dy = pointers[0].y - pointers[1].y;
+      return Math.sqrt(dx * dx + dy * dy) || 1;
+    }
+    function spot(id) {
+      for (var i = 0; i < pointers.length; i++) if (pointers[i].id === id) return pointers[i];
+      return null;
+    }
+
+    function onDown(event) {
+      event.preventDefault();
+      pointers.push({ id: event.pointerId, x: event.clientX, y: event.clientY });
+      dragged = false;
+      if (pointers.length === 2) pinch = { dist: distance(), scale: scale };
+      if (img.setPointerCapture) { try { img.setPointerCapture(event.pointerId); } catch (e) { /* older browsers */ } }
+    }
+    function onMove(event) {
+      var p = spot(event.pointerId);
+      if (!p) return;
+      var dx = event.clientX - p.x, dy = event.clientY - p.y;
+      p.x = event.clientX; p.y = event.clientY;
+      if (Math.abs(dx) + Math.abs(dy) > 4) dragged = true;
+      if (pointers.length === 2 && pinch) {
+        scale = clamp(pinch.scale * (distance() / pinch.dist));
+      } else if (scale > 1) {
+        xOff += dx; yOff += dy;
+      } else if (pointers.length === 1) {
+        dragged = false;
+      }
+      if (scale === 1 && pointers.length < 2) { xOff = 0; yOff = 0; }
+      apply();
+    }
+    function onUp(event) {
+      pointers = pointers.filter(function (entry) { return entry.id !== event.pointerId; });
+      if (pointers.length < 2) pinch = null;
+      if (!pointers.length && scale <= 1) reset();
+    }
+
+    img.addEventListener("pointerdown", onDown);
+    img.addEventListener("pointermove", onMove);
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (name) {
+      img.addEventListener(name, onUp);
+    });
+    /* Tapping the dark surround closes the viewer; a drag does not count.
+       The reset listens on the layer because a press that starts on the
+       surround never reaches the image's own handlers. */
+    layer.addEventListener("pointerdown", function () { dragged = false; });
+    layer.addEventListener("click", function (event) {
+      if (event.target === layer && !dragged) closeZoom(box);
+    });
+    /* Double tap or double click flips between fit and a close look. */
+    img.addEventListener("dblclick", function () { if (scale > 1) reset(); else { scale = 2.5; apply(); } });
+    function onWheel(event) {
+      event.preventDefault();
+      nudge(event.deltaY < 0 ? 1 : -1);
+    }
+    layer.addEventListener("wheel", onWheel, { passive: false });
+
+    layer._teardown = function () {
+      layer.removeEventListener("wheel", onWheel);
+    };
+
+    box.appendChild(layer);
+    x.focus();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Media column
+   * ------------------------------------------------------------------ */
+  function buildMedia(product) {
+    var gallery = (product.gallery && product.gallery.length) ? product.gallery : [product.photo];
+    var media = el("div", "pd-media");
+
+    var stage = el("button", "pd-stage");
+    stage.type = "button";
+    stage.setAttribute("aria-label", "Enlarge the photo of " + product.name);
+    var main = el("img", "pd-main");
+    main.src = gallery[0];
+    main.alt = product.image ? product.name : product.name + " - category illustration";
+    main.decoding = "async";
+    main.loading = "eager";
+    /* The photo keeps its own shape: the stage adopts the loaded image's
+       ratio within sane limits, so nothing is cropped and a very tall photo
+       cannot push the buttons off screen. */
+    main.addEventListener("load", function () {
+      var w = main.naturalWidth || 1, h = main.naturalHeight || 1;
+      stage.style.setProperty("--pd-ratio", String(Math.min(1.5, Math.max(0.7, w / h))));
+    });
+    if (product.image) {
+      main.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
+      /* js/app.js quietly swaps in the stand-in when the file is missing, so
+         say so here rather than letting a borrowed picture look like the item. */
+      main.addEventListener("error", function () {
+        if (media.querySelector(".pd-caption")) return;
+        main.alt = product.name + " - category illustration";
+        media.appendChild(el("p", "pd-caption",
+          "This photo could not be loaded, so the category illustration is shown."));
+      });
+    }
+    stage.appendChild(main);
+    stage.appendChild(el("span", "pd-cue", "⤢ Tap to zoom"));
+    media.appendChild(stage);
+
+    var shown = { src: gallery[0] };
+    stage.addEventListener("click", function () {
+      openZoom(dialogBox(), stage, shown.src, main.alt, !!product.image);
+    });
+
+    if (gallery.length > 1) {
+      var strip = el("div", "pd-thumbs");
+      strip.setAttribute("role", "group");
+      strip.setAttribute("aria-label", "Photos of " + product.name);
+      gallery.forEach(function (src, i) {
+        var thumb = el("button", "pd-thumb");
+        thumb.type = "button";
+        if (i === 0) thumb.setAttribute("aria-current", "true");
+        thumb.setAttribute("aria-label", "Photo " + (i + 1) + " of " + gallery.length);
+        var pic = el("img");
+        pic.src = src; pic.alt = ""; pic.loading = "lazy"; pic.decoding = "async";
+        if (product.image) pic.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
+        thumb.appendChild(pic);
+        thumb.addEventListener("click", function () {
+          shown.src = src;
+          main.src = src;
+          strip.querySelectorAll(".pd-thumb").forEach(function (t) { t.removeAttribute("aria-current"); });
+          thumb.setAttribute("aria-current", "true");
+          dropZoom(dialogBox());
+        });
+        strip.appendChild(thumb);
+      });
+      media.appendChild(strip);
+    }
+
+    if (!product.image) {
+      media.appendChild(el("p", "pd-caption", "Category illustration - not a photo of this exact item."));
+    }
+    return media;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Information column
+   * ------------------------------------------------------------------ */
+  function optionRow(label, values) {
+    if (!values || !values.length) return null;
+    var row = el("div", "pd-opt");
+    row.appendChild(el("span", "pd-opt-label", label));
+    var chips = el("div", "pd-chips");
+    values.forEach(function (value) { chips.appendChild(el("span", "pd-chip", value)); });
+    row.appendChild(chips);
+    return row;
+  }
+
+  function featureList(values) {
+    if (!values || !values.length) return null;
+    var block = el("div", "pd-block");
+    block.appendChild(el("h3", null, "Features"));
+    var ul = el("ul", "pd-ticks");
+    values.forEach(function (value) { ul.appendChild(el("li", null, value)); });
+    block.appendChild(ul);
+    return block;
+  }
+
+  function specTable(specs) {
+    if (!specs || !specs.length) return null;
+    var block = el("div", "pd-block");
+    block.appendChild(el("h3", null, "Specifications"));
+    var dl = el("dl", "pd-specs");
+    specs.forEach(function (row) {
+      if (row.label) {
+        dl.appendChild(el("dt", null, row.label));
+        dl.appendChild(el("dd", null, row.value));
+      } else {
+        dl.appendChild(el("dt", null, "Detail"));
+        dl.appendChild(el("dd", null, row.value));
+      }
+    });
+    block.appendChild(dl);
+    return block;
+  }
+
+  function buildInfo(product) {
+    var info = el("div", "pd-info");
     var fitment = [];
     if (product.brand) fitment.push(product.brand);
     if (product.model) fitment.push(product.model);
-    if (fitment.length) text.appendChild(el("p", "dialog-fit", "Tagged for " + fitment.join(" · ")));
 
-    text.appendChild(product.price
-      ? el("p", "dialog-price", product.price + "  - confirm at the counter")
-      : el("p", "dialog-price is-request", U.isSet(window.FIXON.priceNote) ? window.FIXON.priceNote : "Price on request"));
+    info.appendChild(el("p", "pd-cat", product.categoryLabel || "Accessory"));
 
-    if (product.description) text.appendChild(el("p", "dialog-desc", product.description));
-    text.appendChild(el("p", "dialog-note",
-      "This description comes from the shop's own list. Fit and stock are confirmed on WhatsApp or at the counter before any payment."));
+    var title = el("h2", "pd-title", product.name);
+    title.id = "dialogTitle";
+    info.appendChild(title);
 
-    var actions = el("div", "dialog-actions");
-    var add = el("button", "btn btn-sm btn-primary", "Add to order");
+    if (fitment.length) {
+      var fits = el("div", "pd-fits");
+      fits.appendChild(el("span", null, "Fits"));
+      fitment.forEach(function (value) { fits.appendChild(el("b", null, value)); });
+      info.appendChild(fits);
+    }
+
+    var priceRow = el("div", "pd-price-row");
+    if (product.price) {
+      priceRow.appendChild(el("span", "pd-price", product.price));
+      priceRow.appendChild(el("span", "pd-price-note", "confirm at the counter"));
+    } else {
+      priceRow.appendChild(el("span", "pd-price is-request",
+        U.isSet(window.FIXON.priceNote) ? window.FIXON.priceNote : "Price on request"));
+      priceRow.appendChild(el("span", "pd-price-note", "quoted on WhatsApp or at the counter"));
+    }
+    info.appendChild(priceRow);
+
+    if (product.stock) {
+      var status = el("p", "pd-status");
+      status.appendChild(el("span", "pd-dot", ""));
+      status.appendChild(el("span", null, product.stock));
+      info.appendChild(status);
+    }
+
+    if (product.description) info.appendChild(el("p", "pd-desc", product.description));
+
+    var colors = optionRow("Colours", product.colors);
+    if (colors) info.appendChild(colors);
+    var sizes = optionRow("Sizes", product.sizes);
+    if (sizes) info.appendChild(sizes);
+    var features = featureList(product.features);
+    if (features) info.appendChild(features);
+    var specs = specTable(product.specs);
+    if (specs) info.appendChild(specs);
+
+    var actions = el("div", "pd-actions");
+    var add = el("button", "btn btn-primary", "Add to order");
     add.type = "button";
     add.setAttribute("data-add", product.id);
     add.addEventListener("click", function () {
@@ -369,42 +660,82 @@
     });
     actions.appendChild(add);
 
+    var wa = el("a", "btn btn-whatsapp", "Ask on WhatsApp");
     var waHref = U.whatsappUrl("product", {
       product: product.name + (fitment.length ? " (" + fitment.join(" · ") + ")" : "")
     });
-    var wa = el("a", "btn btn-sm btn-whatsapp", "Ask on WhatsApp");
     if (waHref) { wa.href = waHref; wa.target = "_blank"; wa.rel = "noopener"; }
     else { wa.href = "#"; wa.classList.add("is-unconfigured"); wa.setAttribute("aria-disabled", "true"); }
     actions.appendChild(wa);
+    info.appendChild(actions);
+
     if (product.link) {
-      var more = el("a", "btn btn-sm btn-secondary", "Open the shop's page for it");
+      var more = el("a", "pd-shoplink", "Open the shop's own page for this item ↗");
       more.href = product.link; more.target = "_blank"; more.rel = "noopener";
-      actions.appendChild(more);
+      info.appendChild(more);
     }
-    text.appendChild(actions);
 
+    info.appendChild(el("p", "pd-note",
+      "Everything above comes from the shop's own list. Fit, colour and stock are confirmed on WhatsApp or at the counter before any payment."));
+    return info;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Assembly
+   * ------------------------------------------------------------------ */
+  function openDialog(product, list, options) {
+    var box = dialogBox();
+    if (!box || !product) return;
+    var swap = !!(options && options.swap);
+    if (box.hidden) lastFocused = document.activeElement;
+    clearTimeout(closeTimer);
+    box.classList.remove("is-closing");
+    box.textContent = "";
+    current = {
+      list: list || null,
+      index: list ? list.findIndex(function (p) { return p.id === product.id; }) : -1
+    };
+
+    var panel = el("div", "dialog-panel");
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "dialogTitle");
+    panel.setAttribute("tabindex", "-1");
+    if (swap || reducedMotion()) panel.classList.add("is-swap");
+
+    var head = el("div", "dialog-head");
+    head.appendChild(el("span", "dialog-cat", product.categoryLabel || "Product details"));
+
+    var tools = el("div", "pd-head-tools");
     if (list && list.length > 1) {
-      var nav = el("div", "dialog-pager");
-      var index = list.findIndex(function (p) { return p.id === product.id; });
-      var prev = el("button", "btn btn-sm btn-ghost", "Previous");
-      prev.type = "button";
-      prev.disabled = index <= 0;
-      if (!prev.disabled) prev.addEventListener("click", function () { openDialog(list[index - 1], list); });
-      var next = el("button", "btn btn-sm btn-ghost", "Next");
-      next.type = "button";
-      next.disabled = index === -1 || index >= list.length - 1;
-      if (!next.disabled) next.addEventListener("click", function () { openDialog(list[index + 1], list); });
-      nav.appendChild(prev);
-      nav.appendChild(el("span", "dialog-count", (index + 1) + " of " + list.length));
-      nav.appendChild(next);
-      text.appendChild(nav);
+      [["‹", "Previous product", -1], ["›", "Next product", 1]].forEach(function (spec) {
+        var b = el("button", "pd-arrow", spec[0]);
+        b.type = "button";
+        b.setAttribute("aria-label", spec[1]);
+        var index = current.index;
+        b.disabled = spec[2] < 0 ? index <= 0 : index >= list.length - 1;
+        b.addEventListener("click", function () { step(spec[2]); });
+        tools.appendChild(b);
+      });
+      tools.appendChild(el("span", "dialog-count",
+        (current.index + 1) + " / " + (list ? list.length : 1)));
     }
+    var close = el("button", "dialog-close", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close product details");
+    close.addEventListener("click", closeDialog);
+    tools.appendChild(close);
+    head.appendChild(tools);
+    panel.appendChild(head);
 
-    body.appendChild(text);
+    var body = el("div", "dialog-body");
+    body.appendChild(buildMedia(product));
+    body.appendChild(buildInfo(product));
     panel.appendChild(body);
+
     box.appendChild(panel);
     /* The dialog's own Add button needs the same "On your list (n)" label the
-       cards use, and it is already in the document by now. */
+       cards use, and it is in the document by now. */
     if (typeof window.fixonSyncOrderButtons === "function") window.fixonSyncOrderButtons(box);
     box.hidden = false;
     document.body.classList.add("dialog-open");
@@ -414,7 +745,7 @@
   window.fixonProductModal = openDialog;
 
   function wireDialog() {
-    var box = byId("productDialog");
+    var box = dialogBox();
     if (!box || box.dataset.wired) return;
     box.dataset.wired = "1";
     box.addEventListener("click", function (event) {
@@ -438,6 +769,10 @@
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    /* The Details dialog is used by product cards on every shop page, not
+       just shop.html, so it is wired whenever #productDialog exists. */
+    wireDialog();
+
     var grid = byId("productGrid");
     if (!grid) return;
     if (!C) {

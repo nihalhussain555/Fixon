@@ -299,82 +299,6 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Before/after comparison slider
-   * Real FIXON work photos only: a card keeps its labelled "photo pending"
-   * slot until BOTH files load, so a missing photo can never appear as a
-   * broken image and no repair result is ever invented.
-   * ------------------------------------------------------------------ */
-  var BA_DIR = "images/before-after/";
-
-  function buildSlider(view, card, files) {
-    /* data-ba-alt names the work in plain phrase form, so the two alts read
-       naturally instead of pasting the card headline into both. */
-    var subject = card.getAttribute("data-ba-alt") ||
-      (card.querySelector(".ba-title") || {}).textContent || "this repair";
-    view.setAttribute("aria-label", subject + ": before and after comparison");
-    view.innerHTML =
-      '<img class="ba-shot" src="' + files[1] + '" width="1200" height="900" loading="lazy" decoding="async" alt="' + subject + ', after the work">' +
-      '<img class="ba-shot ba-shot-before" src="' + files[0] + '" width="1200" height="900" loading="lazy" decoding="async" alt="' + subject + ', before the work">' +
-      '<span class="ba-tag ba-tag-before" aria-hidden="true">Before</span>' +
-      '<span class="ba-tag ba-tag-after" aria-hidden="true">After</span>' +
-      '<div class="ba-handle" role="slider" tabindex="0" aria-label="Reveal before or after" ' +
-        'aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">' +
-        '<span class="ba-knob" aria-hidden="true">&#8596;</span></div>';
-    view.classList.add("is-live");
-
-    var handle = view.querySelector(".ba-handle");
-    function setPos(pct) {
-      pct = Math.max(0, Math.min(100, pct));
-      view.style.setProperty("--ba-pos", pct + "%");
-      handle.setAttribute("aria-valuenow", String(Math.round(pct)));
-    }
-
-    var dragging = false;
-    function fromEvent(e) {
-      var r = view.getBoundingClientRect();
-      return ((e.clientX - r.left) / r.width) * 100;
-    }
-    view.addEventListener("pointerdown", function (e) {
-      dragging = true;
-      view.setPointerCapture(e.pointerId);
-      setPos(fromEvent(e));
-      e.preventDefault();
-    });
-    view.addEventListener("pointermove", function (e) { if (dragging) setPos(fromEvent(e)); });
-    ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (evt) {
-      view.addEventListener(evt, function () { dragging = false; });
-    });
-
-    handle.addEventListener("keydown", function (e) {
-      var step = e.shiftKey ? 20 : 5;
-      var cur = parseFloat(handle.getAttribute("aria-valuenow"));
-      var moves = { ArrowLeft: cur - step, ArrowDown: cur - step, ArrowRight: cur + step, ArrowUp: cur + step, Home: 0, End: 100 };
-      if (moves[e.key] === undefined) return;
-      e.preventDefault();
-      setPos(moves[e.key]);
-    });
-  }
-
-  function initBeforeAfter() {
-    document.querySelectorAll("[data-ba]").forEach(function (card) {
-      var view = card.querySelector(".ba-view");
-      if (!view || view.querySelector(".ba-shot")) return;
-      var files = [BA_DIR + card.getAttribute("data-ba") + "-before.jpg",
-                   BA_DIR + card.getAttribute("data-ba") + "-after.jpg"];
-      var ready = 0;
-      files.forEach(function (src) {
-        var probe = new Image();
-        probe.onload = function () {
-          ready += 1;
-          if (ready === files.length) buildSlider(view, card, files);
-        };
-        probe.onerror = function () { /* the labelled slot already says what is needed */ };
-        probe.src = src;
-      });
-    });
-  }
-
-  /* ------------------------------------------------------------------ *
    * Home banner slider - slides come from FIXON.banners. Autoplay stops for
    * reduced motion, while the tab is hidden, and while a visitor is reading
    * or tabbing through a slide, so nothing moves out from under them.
@@ -593,12 +517,12 @@
     initMap();
     initFeatured();
     initBanners();
-    initBeforeAfter();
     injectStructuredData();
     initReveal();
     wireDisabled();
 
-    /* Quick-service shortcuts + wizard chips are generated from config */
+    /* Pages that build controls from config (contact form selects) wait for
+       this event; js/config.js is already loaded by then. */
     document.dispatchEvent(new CustomEvent("fixon:ready"));
   });
 

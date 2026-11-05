@@ -21,9 +21,7 @@
 }
 
 @media (max-width:1200px) {
-  .quick-grid { grid-template-columns: repeat(4, 1fr); }
   .why-grid { grid-template-columns: repeat(2, 1fr); }
-  .service-grid { grid-template-columns: repeat(3, 1fr); }
   .timeline { grid-template-columns: repeat(3, 1fr); }
   .timeline::before { display: none; }
   .timeline-step { padding-top: 44px; }
@@ -40,20 +38,31 @@
   .hero-actions, .hero-trust { justify-content: center; }
   .hero-visual { height: 480px; margin-top: 8px; }
   .split-section { grid-template-columns: 1fr; gap: var(--s-5); padding: var(--s-7) var(--gutter); }
-  .booking-wrap, .contact-grid { grid-template-columns: 1fr; }
+  .contact-grid{ grid-template-columns: 1fr; }
   .footer { grid-template-columns: repeat(2, 1fr); }
-  .service-grid-large, .service-grid { grid-template-columns: repeat(2, 1fr); }
   .product-grid, .accessory-grid { grid-template-columns: repeat(2, 1fr); }
   .brand-grid { grid-template-columns: repeat(3, 1fr); }
-  .ba-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width:860px) {
   .header-cta { display: none; }
   .cover-grid { grid-template-columns: repeat(2, 1fr); }
-  .wizard-body { grid-template-columns: 1fr; gap: var(--s-4); }
   .cta { flex-direction: column; align-items: flex-start; padding: var(--s-5); margin: var(--s-5) 4% var(--s-7); }
   .cta .hero-actions { justify-content: flex-start; width: 100%; }
+}
+
+/* Product dialog: the photo column drops under the information column. */
+@media (max-width:900px) {
+  .dialog { padding: 14px; }
+  .dialog-panel { border-radius: var(--radius-lg); max-height: calc(100dvh - 28px); }
+  .dialog-body { grid-template-columns: minmax(0, 1fr); gap: var(--s-4); padding: var(--s-4); }
+  .pd-media { position: static; }
+  .pd-stage, .pd-main { max-height: 48vh; }
+  .pd-title { font-size: clamp(1.4rem, 5.4vw, 1.8rem); }
+  .pd-specs { grid-template-columns: 1fr; gap: 0; }
+  .pd-specs dt { border-bottom: 0; padding: 12px 0 0; }
+  .pd-specs dd { text-align: left; padding: 2px 0 12px; }
+  .pd-specs dt:last-of-type + dd, .pd-specs dd:last-of-type { border-bottom: 0; }
 }
 
 /* Tablet portrait and below: drawer navigation + sticky action bar */
@@ -91,15 +100,12 @@
   .floating-card { padding: 11px 14px; }
   .card-top { right: -6px; top: 12%; }
   .card-bottom { left: -6px; bottom: 12%; }
-  .quick-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .quick-item { padding: 12px 5px; font-size: .76rem; line-height: 1.25; border-radius: var(--radius-sm); }
-  .quick-item i { font-size: 1rem; }
   .section { padding: var(--s-7) var(--gutter); }
   .section-head { display: grid; gap: 10px; align-items: start; margin-bottom: var(--s-4); }
   .cover-showcase { padding: var(--s-7) var(--gutter); }
   .shop-controls { top: var(--header-h); display: grid; gap: 12px; padding: 14px var(--gutter); }
   .search-box { width: 100%; }
-  .service-grid, .service-grid-large, .product-grid, .accessory-grid { grid-template-columns: 1fr; }
+  .product-grid, .accessory-grid{ grid-template-columns: 1fr; }
   /* Banner becomes a taller, text-led panel so the copy stays readable. */
   .banner-slider { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); }
   .banner::after { background: linear-gradient(to top, rgba(6, 6, 10, .92) 26%, rgba(6, 6, 10, .5) 62%, rgba(6, 6, 10, .12) 100%); }
@@ -107,7 +113,6 @@
   .banner-copy p { font-size: .88rem; }
   .banner-nav { width: 34px; height: 34px; font-size: 1.2rem; }
   .brand-grid { grid-template-columns: repeat(2, 1fr); }
-  .model-grid { grid-template-columns: 1fr; }
   /* Inline text CTAs need a touch-sized hit area, not just the glyph height. */
   .card-actions { gap: 6px 20px; }
   .card-actions a, .text-link, .service-cta, .wa-mini { padding: 11px 2px; }
@@ -115,12 +120,29 @@
   .timeline { grid-template-columns: 1fr; gap: 4px; }
   .timeline-step { padding: 14px 0 14px 40px; border-left: 2px solid var(--line); margin-left: 11px; }
   .timeline-step::before { top: 14px; left: -13px; }
-  .process-grid { grid-template-columns: 1fr 1fr; }
   .form-row { grid-template-columns: 1fr; gap: 0; }
-  /* Product dialog: one column, image first, everything scrollable. */
-  .dialog { padding: 10px; }
-  .dialog-body { grid-template-columns: 1fr; gap: var(--s-3); padding: var(--s-3); }
-  .dialog-photo { max-width: 280px; }
+  /* Product dialog on phones: tighter frame, sticky action bar so the
+     primary buttons stay reachable while the description scrolls. */
+  .dialog { padding: 8px; }
+  .dialog-panel { border-radius: var(--radius-md); max-height: calc(100dvh - 16px); }
+  .dialog-head { padding: var(--s-3) var(--s-3) 0; }
+  .dialog-body { gap: var(--s-3); padding: var(--s-3); }
+  .pd-stage, .pd-main { max-height: 42vh; }
+  .pd-title { font-size: 1.35rem; }
+  .pd-price { font-size: 1.6rem; }
+  .pd-thumb { width: 62px; height: 62px; }
+  /* No hover on touch, so the zoom cue has to be visible from the start. */
+  .pd-cue { opacity: 1; transform: none; }
+  .pd-actions {
+    position: sticky; bottom: calc(-1 * var(--s-3)); z-index: 2;
+    margin: var(--s-3) calc(-1 * var(--s-3)) calc(-1 * var(--s-3));
+    padding: 12px var(--s-3) 2px;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    backdrop-filter: blur(10px); border-top: 1px solid var(--line);
+  }
+  .pd-actions .btn { flex: 1 1 100%; }
+  .pd-zoom-hint { display: none; }
+  .pd-zoom-img { max-height: 76vh; }
   .catalog-state { padding: var(--s-4); }
   .form-card { padding: var(--s-4); }
   .footer { grid-template-columns: 1fr 1fr; padding: var(--s-7) var(--gutter) var(--s-5); }
@@ -157,9 +179,7 @@
 
 @media (max-width:560px) {
   .hero-visual { height: 380px; transform: scale(.94); }
-  .quick-grid { grid-template-columns: repeat(2, 1fr); }
   .cover-grid { grid-template-columns: 1fr; }
-  .process-grid { grid-template-columns: 1fr; }
   .device-panel div { height: 160px; font-size: 2.6rem; }
   .btn { padding: 13px 17px; font-size: .9rem; }
   .header { gap: 8px; }
@@ -176,7 +196,6 @@
   .page-hero h1 { font-size: 2.3rem; }
   .hero-actions { flex-direction: column; width: 100%; }
   .hero-actions .btn { width: 100%; }
-  .wizard-actions .btn { flex: 1 1 100%; }
   .nav-cta-group { grid-template-columns: 1fr; }
   .footer { grid-template-columns: 1fr; }
   .logo { font-size: 1.3rem; }
@@ -185,7 +204,6 @@
 
 /* Fingers need a bigger grab target than a mouse on the before/after slider. */
 @media (pointer: coarse) {
-  .ba-knob { width: 40px; height: 40px; }
   .order-close, .qty-btn, .qty-drop { min-width: 36px; min-height: 36px; }
 }
 
@@ -194,7 +212,6 @@
   h1 { font-size: 2.15rem; }
   .hero-visual { transform: scale(.86); height: 340px; }
   .phone { width: 178px; height: 356px; }
-  .quick-grid { grid-template-columns: repeat(2, 1fr); }
   .mobile-bar .btn { font-size: .74rem; padding: 11px 4px; letter-spacing: -.01em; }
 }
 
