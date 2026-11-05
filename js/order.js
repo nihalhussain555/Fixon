@@ -458,7 +458,6 @@
   function openDrawer() {
     var host = buildPanel();
     if (!host) return;
-    lastFocused = document.activeElement;
     host.hidden = false;
     host.classList.add("is-open");
     var btn = button();
