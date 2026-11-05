@@ -202,6 +202,15 @@ h1 em, h2 em { font-style: normal; color: var(--accent); }
 .btn-primary:hover { box-shadow: var(--shadow); }
 .btn-secondary { border-color: var(--line); background: var(--surface); color: var(--text); }
 .btn-secondary:hover { border-color: var(--line-strong); background: var(--surface-2); }
+/* The send-an-order fill: accent teal, the same colour the price line and the
+   nav hover underline already stand for. */
+.btn-accent { background: var(--accent); color: var(--on-accent); }
+.btn-accent:hover { box-shadow: 0 12px 30px color-mix(in srgb, var(--accent) 30%, transparent); }
+/* ORDER NOW and Send order read the photos before any share sheet can open.
+   That wait is announced rather than left looking like a dead button, and the
+   rule is on the class instead of [disabled] because the tray's Send is a
+   link, which has no disabled state of its own. */
+.btn.is-busy { opacity: .8; cursor: progress; }
 .btn-whatsapp { background: var(--wa); color: var(--wa-ink); }
 .btn-whatsapp:hover { box-shadow: 0 16px 38px color-mix(in srgb, var(--wa) 22%, transparent); }
 .btn-outline { border-color: var(--line); color: var(--text); }

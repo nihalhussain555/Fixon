@@ -234,9 +234,17 @@ answered, and when. Normal visitors never see this panel.
 - Quantities are edited in the panel; the running figure counts **only priced
   rows** and states how many items have no price online, so a half-invented
   total is never presented as a bill.
-- **Send order on WhatsApp** opens WhatsApp with the whole order typed out:
-  quantity, name, listed price and the brand/model tags for each line, plus the
-  total line and any name/phone/notes the visitor typed.
+- **Send order on WhatsApp** opens WhatsApp with the whole order typed out, one
+  labelled block per row — `Product Name` (with the brand/model tags on the same
+  line), `Price`, `Category` and `Quantity` — then the total line and any
+  name/phone/notes the visitor typed. On a phone whose browser accepts file
+  sharing, the items' own photos are attached as real images (up to six per
+  message); rows whose photo did not go are named in the message with their
+  `image` address so you can ask for them, and nothing is ever described as
+  attached when only its link is there.
+- Because the photo comes from the `image` cell, a row that leaves it blank can
+  be sent but never pictured — and a category illustration is never used in its
+  place.
 - The shop confirms availability, the final total and payment. **This site has
   no payment page and no stock counter** — it must not claim either.
 - If you hide or delete a row while it is in someone's list, their panel marks

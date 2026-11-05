@@ -175,11 +175,12 @@ and `shop.html?cat=cases` style links are query strings, not paths.
 
 After deploying, check three things: the shop page shows your products,
 `Add to order` → `Send order on WhatsApp` opens WhatsApp with the list typed
-out, and the phone/WhatsApp links dial the shop.
+out - with the products' own photos attached on a phone that allows it - and the
+phone/WhatsApp links dial the shop.
 
 ## Widths the layout is held to
 
-360, 375, 390, 414, 768, 1024, 1440 and 1920. The order tray is a right-hand
+320, 360, 375, 390, 414, 768, 1024, 1440 and 1920. The order tray is a right-hand
 panel above 720px and a bottom sheet below it, parked above the sticky
 Call / WhatsApp / Book bar so both stay reachable. The product dialog is two
 columns (photo left, information right) above 900px, one column below it, and

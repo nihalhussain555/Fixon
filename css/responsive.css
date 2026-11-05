@@ -81,12 +81,23 @@
     max-height: calc(100vh - var(--header-h) - 96px); overflow-y: auto;
   }
   .nav.is-open { opacity: 1; visibility: visible; transform: none; }
+  /* The drawer must not be scrollable behind it while open. The body's value
+     reaches the viewport here the same way its overflow-x already does. */
+  body.nav-open { overflow: hidden; }
   /* Scoped to plain nav links: `.nav a` alone outranks `.btn-primary` etc.
      and would repaint the drawer's CTA buttons with the body text colour. */
   .nav a:not(.btn) { padding: 13px 12px; border-radius: var(--radius-xs); font-size: 1rem; color: var(--text); }
   .nav a:not(.btn):hover, .nav a:not(.btn).active { background: var(--accent-soft); }
   .nav a::after { display: none; }
-  .nav-scrim { display: block; position: fixed; inset: 0; top: var(--header-h); background: var(--scrim); opacity: 0; visibility: hidden; transition: opacity .22s var(--ease), visibility .22s var(--ease); z-index: 65; }
+  /* The scrim sits BELOW .header's own 60, not above it. The header carries a
+     backdrop-filter, which makes it a stacking context as well as the
+     containing block for the fixed drawer, so the drawer's z-index:70 only
+     competes inside the header: painted against the page, the whole header
+     subtree sits at 60 and a scrim at 65 covered the open menu and swallowed
+     every tap on a link - the menu looked like it did nothing. Below 60 the
+     scrim still hides everything under the header, and the links hit-test
+     again. */
+  .nav-scrim { display: block; position: fixed; inset: 0; top: var(--header-h); background: var(--scrim); opacity: 0; visibility: hidden; transition: opacity .22s var(--ease), visibility .22s var(--ease); z-index: 55; }
   .nav-scrim.is-open { opacity: 1; visibility: visible; }
   .nav-cta-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
   .nav-cta-group .btn { font-size: .85rem; padding: 12px 10px; }

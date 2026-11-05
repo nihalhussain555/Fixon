@@ -83,12 +83,27 @@
         "Hi {shop}, I have a question about {topic}.\n\n{message}\n\nDevice: {device}\nBest time to reply: {when}\n\n- {customer} ({contact})",
 
       /* The order tray (js/order.js) builds one message from the items the
-         visitor added. {items}, {priced} and {extras} arrive already typed as
-         lines by that script, so this template stays the single place where
-         the shop's wording lives. Nothing is submitted anywhere: WhatsApp
-         opens with this text and the visitor sends it themselves. */
+         visitor added, in the same labelled shape ORDER NOW uses for a single
+         product: {items} arrives as one "Product Name / Price / Category /
+         Quantity" block per item, separated by a blank line. {lead} is
+         "this product." or "these products." so a one-item list still reads
+         correctly. {priced} is the total line and {extras} whatever the
+         visitor typed. {photo} is empty when the pictures really went into the
+         share sheet, and otherwise names each item whose photo did not, gives
+         its address, and says the attachments have to happen by hand. Nothing
+         is submitted anywhere: WhatsApp opens with this text and the visitor
+         sends it themselves. */
       order:
-        "Hi {shop}, I would like to order these items:\n\n{items}\n\n{priced}\n{extras}Please confirm availability, the total and how I should pay."
+        "Hello! I am interested in ordering {lead}\n\n{items}\n\n{priced}\n{extras}Please confirm availability and delivery details.{photo}",
+
+      /* ORDER NOW (js/shop.js): one product sent straight from its details
+         panel. {details} arrives as the labelled lines that this listing can
+         actually answer - a product with no category cell simply has no
+         category line - and {photo} is either empty, because the picture went
+         through as a real file, or the address of it plus a note that the
+         visitor has to attach it themselves. */
+      orderProduct:
+        "Hello! I am interested in ordering this product.\n\n{details}\n\nPlease confirm availability and delivery details.{photo}"
     },
 
     /* ------------------------------------------------------------------ *
@@ -276,12 +291,17 @@
     });
   }
 
+  /* The configured wording, filled in, without the wa.me wrapper: ORDER NOW
+     needs the same text for a Web Share sheet that a link does not belong in. */
+  function message(messageKey, tokens) {
+    var template = FIXON.messages[messageKey] || FIXON.messages.general;
+    return fill(template, Object.assign({ shop: FIXON.name }, tokens || {}));
+  }
+
   /* WhatsApp: one number, one entry point, pre-filled message. */
   function whatsappUrl(messageKey, tokens) {
     if (!isSet(FIXON.whatsappNumber)) return null;
-    var template = FIXON.messages[messageKey] || FIXON.messages.general;
-    var base = Object.assign({ shop: FIXON.name }, tokens || {});
-    return "https://wa.me/" + FIXON.whatsappNumber + "?text=" + encodeURIComponent(fill(template, base));
+    return "https://wa.me/" + FIXON.whatsappNumber + "?text=" + encodeURIComponent(message(messageKey, tokens));
   }
 
   function telUrl() {
@@ -360,6 +380,7 @@
     isSet: isSet,
     fill: fill,
     whatsappUrl: whatsappUrl,
+    message: message,
     telUrl: telUrl,
     mapsSearchUrl: mapsSearchUrl,
     mapsEmbedUrl: mapsEmbedUrl,

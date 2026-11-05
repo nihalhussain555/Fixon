@@ -19,6 +19,10 @@
      no sheet text or visitor text is ever concatenated into innerHTML.
    - The visitor's own name, phone model and notes are NOT saved to the device:
      they exist only inside the message they are about to send.
+   - A photo is described as attached only when it went into the share sheet as
+     a file. Every other route sends the message with the photo's address and
+     says plainly that the attachment has to happen by hand, because a link to
+     a picture is not the picture.
    ========================================================================== */
 (function () {
   "use strict";
@@ -92,6 +96,12 @@
         price: live ? live.price : row.price,
         priceNumber: live ? live.priceNumber : row.priceNumber,
         detail: live ? [live.brand, live.model].filter(Boolean).join(" - ") : row.detail,
+        /* The category label and the listing's own photo are needed by the
+           message, and "own photo" means the sheet cell: image is empty when
+           the row has no picture, while photo falls back to a category
+           illustration - which must never be sent as if it were the item. */
+        category: live ? (live.categoryLabel || live.categoryRaw || "") : "",
+        image: live ? (live.image || "") : "",
         qty: row.qty,
         listed: !!live || !checkable
       };
@@ -179,15 +189,84 @@
     return U.formatPrice(value);
   }
 
-  function itemLines(list) {
-    return list.map(function (item, i) {
-      var line = (i + 1) + ". " + item.qty + " x " + item.name;
-      if (item.price) line += " - " + money(item.priceNumber) + " each";
-      else line += " - price not listed yet";
-      if (item.detail) line += " (" + item.detail + ")";
-      if (!item.listed) line += " [no longer on the online list]";
-      return line;
+  function priceLabel(item) {
+    if (item.price) return item.price;
+    return U.isSet(CFG.priceNote) ? CFG.priceNote : "Price on request";
+  }
+
+  /* One item, in the labelled shape a single product's ORDER NOW message uses:
+     the lines this listing can actually answer, in the same order every time.
+     Fitment rides on the name line so a sheet carrying a brand or model still
+     says so, and an item the shop list has dropped is labelled as one. */
+  function itemBlock(item) {
+    var lines = [];
+    var name = item.name;
+    if (item.detail) name += " (" + item.detail + ")";
+    if (!item.listed) name += " [no longer on the online list]";
+    lines.push("Product Name: " + name);
+    lines.push("Price: " + priceLabel(item));
+    if (item.category) lines.push("Category: " + item.category);
+    lines.push("Quantity: " + item.qty + (item.qty === 1 ? " unit" : " units"));
+    return lines.join("\n\n");
+  }
+
+  function absoluteAddress(src) {
+    try { return new URL(src, location.href).href; } catch (e) { return src; }
+  }
+
+  /* The honesty line, and the reason it is a function rather than a sentence
+     written at the call site: it must never say more than what actually went
+     into the message. Empty when every photo really went with it; otherwise it
+     names each item left without one and gives its address, and the closing
+     half states either how many did attach or that none did. */
+  function noteFor(missing, attached) {
+    if (!missing.length) return "";
+    var lines = missing.map(function (item) {
+      var where = item.image ? absoluteAddress(item.image) : item.why;
+      return "No photo for " + item.name + ": " + where;
     });
+    var tail = attached
+      ? "\n" + attached + (attached === 1 ? " photo is attached with this message" : " photos are attached with this message") +
+        "; the ones above need attaching by hand."
+      : "\nNo photo could be attached, so this message carries the addresses only -" +
+        " each photo above needs attaching by hand.";
+    return "\n\n" + lines.join("\n") + tail;
+  }
+
+  /* Items that have a picture of their own, so the note can name them all. */
+  function photoWanted(list) {
+    return list.filter(function (item) { return !!item.image; });
+  }
+
+  function photoMissing(list) {
+    return list.filter(function (item) { return !item.image; }).map(function (item) {
+      return {
+        name: item.name,
+        image: "",
+        why: item.listed ? "this listing has no photo of its own yet"
+                         : "this item is no longer on the online list"
+      };
+    });
+  }
+
+  /* The link is what a browser with no file sharing has to work with, so it
+     carries the addresses of every photo up front rather than pretending. */
+  function linkNote(list) {
+    return noteFor(photoMissing(list).concat(
+      photoWanted(list).map(function (item) {
+        return { name: item.name, image: item.image, why: "" };
+      })
+    ), 0);
+  }
+
+  /* A one-off probe, because canShare is the only claim worth believing and it
+     needs a file to be asked about. */
+  function fileSharePossible() {
+    var S = window.fixonShare;
+    if (!S || !S.supported() || typeof File !== "function") return false;
+    try {
+      return !!(navigator.canShare && navigator.canShare({ files: [new File([""], "probe.jpg", { type: "image/jpeg" })] }));
+    } catch (e) { return false; }
   }
 
   function priceLine(tally) {
@@ -222,31 +301,162 @@
     return node ? String(node.value || "").replace(/\s+/g, " ").trim().slice(0, 200) : "";
   }
 
+  /* The whole message: {items} is one labelled block per item, and a list too
+     long for the link is shortened whole item by whole item rather than cut in
+     the middle of one. */
+  function orderText(list, shown, note) {
+    var blocks = list.slice(0, shown).map(itemBlock);
+    if (shown < list.length) {
+      blocks.push("...and " + (list.length - shown) + " more item" +
+        (list.length - shown === 1 ? "" : "s") + " on my list");
+    }
+    return U.message("order", {
+      lead: list.length === 1 ? "this product." : "these products.",
+      items: blocks.join("\n\n"),
+      priced: priceLine(summary(list)),
+      extras: extrasText(),
+      photo: note || ""
+    });
+  }
+
   /* WhatsApp's link form puts the text in a query parameter, so a very long
      order has to be shortened rather than silently truncated mid-item. */
-  function orderHref() {
-    var list = view();
+  function orderHref(list, note) {
+    list = list || view();
     if (!list.length) return null;
-    var href = U.whatsappUrl("order", {});
-    if (!href) return null;
+    var base = U.whatsappUrl("order", {});
+    if (!base) return null;
+    base = base.split("?text=")[0] + "?text=";
 
-    var base = href.split("?text=")[0] + "?text=";
     var keep = list.length;
     var url;
     for (;;) {
-      var shown = list.slice(0, keep);
-      var lines = itemLines(shown);
-      if (keep < list.length) lines.push("...and " + (list.length - keep) + " more item" + (list.length - keep === 1 ? "" : "s") + " on my list");
-      var text = U.fill(CFG.messages.order, {
-        shop: CFG.name,
-        items: lines.join("\n"),
-        priced: priceLine(summary(list)),
-        extras: extrasText()
-      });
-      url = base + encodeURIComponent(text);
+      url = base + encodeURIComponent(orderText(list, keep, note));
       if (url.length <= MAX_URL || keep <= 1) return url;
       keep -= 1;
     }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Sending the list with its photos
+   * ------------------------------------------------------------------ *
+   * A wa.me link carries text and addresses, never a picture, so the share
+   * sheet is the only route that hands FIXON the real images. It is attempted
+   * only when this browser admits files, and every outcome that does not end
+   * with photos actually going through falls back to the link with the address
+   * of each photo in the text. Nothing here describes a photo as attached
+   * unless it went into the sheet as a file.
+   * ------------------------------------------------------------------ */
+  function release(send, S) {
+    setBusy(send, false);
+    S.release();
+  }
+
+  function setBusy(send, on) {
+    if (on) {
+      send.dataset.label = send.textContent;
+      send.classList.add("is-busy");
+      send.setAttribute("aria-disabled", "true");
+      send.textContent = "Attaching photos...";
+      return;
+    }
+    send.classList.remove("is-busy");
+    send.removeAttribute("aria-disabled");
+    if (send.dataset.label) {
+      send.textContent = send.dataset.label;
+      delete send.dataset.label;
+    }
+  }
+
+  function toast(msg, type) {
+    if (typeof window.showToast === "function") window.showToast(msg, type);
+  }
+
+  /* The link path. A new tab while the browser still counts this as coming from
+     the tap, and the same tab when it does not - by this point the activation
+     may well have expired, and a plain navigation is the one thing a popup
+     blocker leaves alone. */
+  function openLink(href) {
+    var win = window.open(href, "_blank", "noopener");
+    if (!win) location.href = href;
+  }
+
+  function fallbackToSend(send, list, reason) {
+    var href = orderHref(list, linkNote(list));
+    if (!href) {
+      toast("FIXON's WhatsApp number is not set in js/config.js, so this order cannot be sent from the site yet.", "error");
+      return;
+    }
+    send.href = href;
+    toast(reason + " Your list can still go to FIXON - the message carries the address of" +
+      " every photo, and they need attaching by hand.", "warn");
+    openLink(href);
+  }
+
+  function sendWithPhotos(send) {
+    var S = window.fixonShare;
+    var list = view();
+    if (!S || !list.length) return;
+
+    /* One message cannot hold an arbitrary number of attachments, so the photos
+       past the cap are named in the text with their addresses rather than
+       silently dropped. */
+    var wanted = photoWanted(list);
+    var take = wanted.slice(0, S.MAX_PHOTOS);
+    var missing = photoMissing(list);
+    wanted.slice(S.MAX_PHOTOS).forEach(function (item) {
+      missing.push({
+        name: item.name, image: item.image,
+        why: "one message cannot carry more than " + S.MAX_PHOTOS + " photos"
+      });
+    });
+
+    if (!S.claim()) return;                     /* a send is already running */
+    setBusy(send, true);
+
+    /* Each fetch keeps its own outcome, so one listing with a blocked photo
+       does not cost the visitor the pictures of the others. */
+    Promise.all(take.map(function (item) {
+      return S.fileFor(item).then(
+        function (file) { return { item: item, file: file }; },
+        function (err) { return { item: item, reason: err && err.reason }; }
+      );
+    })).then(function (results) {
+      var files = [];
+      results.forEach(function (r) {
+        if (r.file) files.push(r.file);
+        else missing.push({ name: r.item.name, image: r.item.image, why: r.reason || "the photo could not be read" });
+      });
+
+      if (!files.length) {
+        release(send, S);
+        fallbackToSend(send, list, "None of these photos could be attached.");
+        return;
+      }
+
+      return S.share({
+        title: CFG.name + " order",
+        text: orderText(list, list.length, noteFor(missing, files.length)),
+        files: files
+      }).then(function () {
+        release(send, S);
+        /* Only a share that resolved is allowed to be described as carrying
+           the photos. */
+        toast(files.length + (files.length === 1 ? " photo" : " photos") +
+          " and your list handed to the share sheet.", "success");
+        /* The plain link the anchor still holds was built before this browser
+           proved it takes files, so it is rebuilt now that the two say the
+           same thing. */
+        paint();
+      }, function (err) {
+        release(send, S);
+        if (err && err.name === "AbortError") return;      /* they dismissed it */
+        fallbackToSend(send, list, (err && err.reason) ? err.reason : "The photos could not be attached.");
+      });
+    }, function () {
+      release(send, S);
+      fallbackToSend(send, list, "The photos could not be read.");
+    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -278,7 +488,9 @@
     host.appendChild(head);
 
     host.appendChild(el("p", "order-how",
-      "Collect what you want here. Nothing is sent or booked until you press Send, which opens WhatsApp with this list typed out for FIXON."));
+      "Collect what you want here. Nothing is sent or booked until you press Send, which opens " +
+      "WhatsApp with this list typed out for FIXON - and, on a browser that allows it, the product " +
+      "photos attached as real pictures rather than as links."));
 
     var list = el("ul", "order-list");
     list.id = "orderLines";
@@ -311,6 +523,21 @@
     var send = el("a", "btn btn-whatsapp", "Send order on WhatsApp");
     send.id = "orderSend";
     send.href = "#";
+    /* The link is the whole feature on a browser that will not take files, and
+       the attempt at a real photo send on one that will. Looking the module up
+       on the tap rather than at start-up is deliberate: js/app.js, where it
+       lives, is the file the page loads after this one. */
+    send.addEventListener("click", function (event) {
+      var href = send.getAttribute("href");
+      if (!href || href === "#") return;
+      if (send.getAttribute("aria-disabled") === "true") { event.preventDefault(); return; }
+      /* A modified or non-primary click means they want the link itself - a new
+         tab, a save - so it is left alone rather than intercepted. */
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+      if (!fileSharePossible()) return;
+      event.preventDefault();
+      sendWithPhotos(send);
+    });
     actions.appendChild(send);
     var clear = el("button", "btn btn-sm btn-ghost", "Clear list");
     clear.type = "button";
@@ -430,11 +657,19 @@
 
     var send = document.getElementById("orderSend");
     if (send) {
-      var href = orderHref();
+      /* A browser that takes files gets the clean message, because the photos
+         go with it as real attachments. One that does not gets the addresses
+         and the instruction to attach them, which is the honest version of the
+         same order rather than a claim. */
+      var canAttach = fileSharePossible();
+      var href = orderHref(list, canAttach ? "" : linkNote(list));
       if (href) {
         send.href = href;
         send.target = "_blank";
         send.rel = "noopener";
+        send.title = canAttach
+          ? "Sends this list to FIXON on WhatsApp with these products' photos attached"
+          : "Opens WhatsApp with this list and the address of each photo. This browser cannot attach the photos, so they need adding by hand.";
         send.classList.remove("is-unconfigured", "is-disabled");
         send.setAttribute("aria-disabled", "false");
       } else {

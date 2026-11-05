@@ -615,6 +615,90 @@
     return block;
   }
 
+  /* ------------------------------------------------------------------ *
+   * ORDER NOW - hand the chat app the real photo, not a link to it
+   * ------------------------------------------------------------------ *
+   * Reading the picture and opening the share sheet both live in
+   * window.fixonShare (js/app.js), which the order list uses the same way.
+   * What stays here is this product's own wording, plus the rule that no
+   * message may claim a photo it did not get: the fallback says in plain words
+   * that only the address is present, and arrives as a link the visitor taps,
+   * because a link cannot be popup-blocked the way window.open can.
+   * ------------------------------------------------------------------ */
+  function share() { return window.fixonShare; }
+
+  /* Fields this listing can actually answer: no line is printed for a cell the
+     sheet left blank. */
+  function orderTokens(product, photoNote) {
+    var lines = ["Product Name: " + product.name];
+    lines.push("Price: " + (product.price
+      || (U.isSet(window.FIXON.priceNote) ? window.FIXON.priceNote : "Price on request")));
+    var category = product.categoryLabel || product.categoryRaw;
+    if (category) lines.push("Category: " + category);
+    return { details: lines.join("\n\n"), photo: photoNote || "" };
+  }
+
+  function orderFallback(product, host, reason) {
+    var S = share();
+    var src = S ? S.photoSrc(product) : "";
+    var note = src
+      ? "\n\nProduct photo: " + S.absolute(src) +
+        "\nThis message carries the address only - the photo needs attaching by hand."
+      : "\n\nThis listing has no photo to attach.";
+    var href = U.whatsappUrl("orderProduct", orderTokens(product, note));
+    if (!href) {
+      if (window.showToast) window.showToast("FIXON's WhatsApp number is not set in js/config.js, so this order cannot be sent from the site yet.", "error");
+      return;
+    }
+    var link = el("a", "btn btn-whatsapp", "Open WhatsApp with these details");
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.title = "Opens WhatsApp with the product details and the photo address. No photo is attached automatically.";
+    host.appendChild(link);
+    if (window.showToast) {
+      window.showToast(reason + " The details can still go to FIXON - use the WhatsApp button below"
+        + (src ? " and attach the photo yourself." : "."), "warn");
+    }
+  }
+
+  function orderNow(product, button, host) {
+    var S = share();
+    if (!S || !S.supported()) {
+      orderFallback(product, host, "This browser has no share sheet.");
+      return;
+    }
+    if (!S.claim()) return;                  /* a send is already in flight */
+    var label = button.textContent;
+    button.disabled = true;
+    button.classList.add("is-busy");
+    button.textContent = "Preparing photo...";
+
+    function release() {
+      S.release();
+      button.disabled = false;
+      button.classList.remove("is-busy");
+      button.textContent = label;
+    }
+
+    S.fileFor(product).then(function (file) {
+      return S.share({
+        title: product.name,
+        text: U.message("orderProduct", orderTokens(product, "")),
+        files: [file]
+      });
+    }).then(function () {
+      release();
+      /* A resolved share is the only moment it is true to say the photo went
+         with the message, so this is the only place that says it. */
+      if (window.showToast) window.showToast("Photo and details handed to the share sheet.", "success");
+    }, function (err) {
+      release();
+      if (err && err.name === "AbortError") return;   /* they dismissed the sheet */
+      orderFallback(product, host, (err && err.reason) ? err.reason : "The photo could not be attached.");
+    });
+  }
+
   function buildInfo(product) {
     var info = el("div", "pd-info");
     var fitment = [];
@@ -666,6 +750,20 @@
     if (specs) info.appendChild(specs);
 
     var actions = el("div", "pd-actions");
+
+    /* Order Now is the photo path; "Add to order" stays the order-list path. */
+    var order = el("button", "btn btn-accent", "Order Now");
+    order.type = "button";
+    if (U.isSet(window.FIXON.whatsappNumber)) {
+      order.title = "Shares this product's photo and details with FIXON on WhatsApp";
+      order.addEventListener("click", function () { orderNow(product, order, actions); });
+    } else {
+      order.classList.add("is-unconfigured");
+      order.setAttribute("aria-disabled", "true");
+      order.title = "FIXON.whatsappNumber is not set in js/config.js";
+    }
+    actions.appendChild(order);
+
     var add = el("button", "btn btn-primary", "Add to order");
     add.type = "button";
     add.setAttribute("data-add", product.id);
