@@ -505,100 +505,6 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Photo sharing - the only way a browser can put a real picture into
-   * WhatsApp, and the reason the product's own order button (js/shop.js) and
-   * the order list
-   * (js/order.js) both come through here rather than each keeping a copy.
-   * ------------------------------------------------------------------ *
-   * A wa.me link carries text and addresses; it can never carry an image. The
-   * Web Share API is the only route that hands over a file, and it is not
-   * universal: most desktop browsers refuse files, an address that blocks
-   * cross-site reads (a Google Drive share link being the common one on a
-   * sheet) cannot be fetched at all, and a share sheet will not accept an
-   * arbitrary number of attachments. Every caller therefore has to treat a
-   * failure as ordinary, and no message may claim a photo went with it unless
-   * this module actually handed one over.
-   * ------------------------------------------------------------------ */
-  var MAX_PHOTO_BYTES = 12 * 1024 * 1024;
-  var MAX_PHOTOS = 6;            /* sheets start refusing past a handful */
-  var photoBusy = false;
-
-  /* The listing's own picture only. A category illustration is a stand-in the
-     panel already labels as one, so sending it as the product would
-     misrepresent what the shop is being asked to deliver. */
-  function photoSrcOf(product) {
-    var src = product && product.image ? product.image : "";
-    return src && !/^data:/i.test(src) ? src : "";
-  }
-
-  function photoUrlOf(src) {
-    try { return new URL(src, location.href).href; } catch (e) { return src; }
-  }
-
-  /* The file name is what shows in the chat, so a sheet slug reads better
-     than a hash, and the extension follows what actually arrived. */
-  function photoNameOf(product, type) {
-    var fromUrl = String(product.image || "").split("?")[0].split("/").pop() || "";
-    var base = (fromUrl || product.name || "product")
-      .replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
-    var ext = String(type || "").split("/")[1] || "jpg";
-    ext = ext.replace("jpeg", "jpg").split("+")[0];
-    return /\.(png|jpe?g|webp|gif|heic|avif)$/i.test(base) ? base : base + "." + ext;
-  }
-
-  function toFile(blob, name) {
-    if (typeof window.File === "function") return new window.File([blob], name, { type: blob.type });
-    /* Oldest WebKit has no File constructor but still shares a named Blob. */
-    try { Object.defineProperty(blob, "name", { value: name }); } catch (e) {}
-    return blob;
-  }
-
-  /* Every reason here is phrased for the visitor, because each one changes
-     what they have to do next. */
-  function photoFile(product) {
-    var src = photoSrcOf(product);
-    if (!src) return Promise.reject({ reason: "This listing has no photo of its own yet." });
-    if (!window.fetch) return Promise.reject({ reason: "This browser cannot read the photo." });
-    return fetch(src, { credentials: "omit" }).then(function (res) {
-      if (!res.ok) throw { reason: "The photo address answered " + res.status + "." };
-      return res.blob();
-    }, function () {
-      throw { reason: "That photo is hosted somewhere that does not allow a cross-site download." };
-    }).then(function (blob) {
-      var type = String(blob.type || "");
-      if (type.indexOf("image/") !== 0) throw { reason: "That address is not a picture." };
-      if (type.indexOf("svg") !== -1) throw { reason: "This artwork is a vector file, which chat apps will not take as a photo." };
-      if (!blob.size) throw { reason: "The photo came back empty." };
-      if (blob.size > MAX_PHOTO_BYTES) throw { reason: "The photo is larger than a chat app accepts." };
-      return toFile(blob, photoNameOf(product, type));
-    });
-  }
-
-  function sharePhoto(payload) {
-    var files = payload.files || [];
-    if (!navigator.share) return Promise.reject({ reason: "This browser has no share sheet." });
-    if (!(navigator.canShare && navigator.canShare({ files: files }))) {
-      return Promise.reject({ reason: "This browser will not put photos into a shared message." });
-    }
-    /* They dismissed the sheet, which is not a failure to explain - and the
-       share only counts as done when the promise actually resolves. */
-    return navigator.share(payload).then(null, function (err) {
-      if (err && err.name === "AbortError") throw err;
-      throw { reason: "The share sheet could not take the photos." };
-    });
-  }
-
-  /* One send at a time, whoever asks for it: a second sheet opening behind the
-     first would leave the visitor holding a half-sent message. */
-  function claimPhoto() {
-    if (photoBusy) return false;
-    photoBusy = true;
-    return true;
-  }
-
-  function releasePhoto() { photoBusy = false; }
-
-  /* ------------------------------------------------------------------ *
    * Boot
    * ------------------------------------------------------------------ */
   document.addEventListener("DOMContentLoaded", function () {
@@ -625,16 +531,4 @@
   window.fixonHydrate = hydrate;
   window.fixonUtils.hydrate = hydrate;
   window.showToast = showToast;
-  window.fixonShare = {
-    supported: function () { return !!navigator.share; },
-    busy: function () { return photoBusy; },
-    claim: claimPhoto,
-    release: releasePhoto,
-    fileFor: photoFile,
-    share: sharePhoto,
-    photoSrc: photoSrcOf,
-    photoUrl: function (product) { return photoUrlOf(photoSrcOf(product)); },
-    absolute: photoUrlOf,
-    MAX_PHOTOS: MAX_PHOTOS
-  };
 })();

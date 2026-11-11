@@ -616,246 +616,91 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * ORDER ON WHATSAPP - hand the chat app the real photo, not a link to it
+   * ORDER ON WHATSAPP - a direct chat with the shop's number
    * ------------------------------------------------------------------ *
-   * Reading the picture and opening the share sheet both live in
-   * window.fixonShare (js/app.js), which the order list uses the same way.
-   * What stays here is this product's own wording, plus the rule that no
-   * message may claim a photo it did not get: the fallback says in plain words
-   * that only the address is present, and arrives as a link the visitor taps,
-   * because a link cannot be popup-blocked the way window.open can.
+   * One click builds the order text from this listing's own row and opens
+   * the official direct-chat address, https://wa.me/<number>?text=..., in a
+   * new tab: FIXON's chat appears with the message already typed out, and
+   * the visitor only has to press send. No device share sheet, no contact
+   * picking, no photo APIs - a wa.me link carries text, which is exactly
+   * what an order needs, and js/config.js has verified the number shape.
    * ------------------------------------------------------------------ */
-  function share() { return window.fixonShare; }
+
+  /* The quantity the visitor is actually asking for: the order list's count
+     for this product when it is on the list, one otherwise. */
+  function orderQuantity(product) {
+    var inList = window.fixonOrder ? window.fixonOrder.countFor(product.id) : 0;
+    return Math.max(1, Math.min(99, Math.floor(inList) || 1));
+  }
 
   /* Fields this listing can actually answer: no line is printed for a cell
-     the sheet or the database left blank. Quantity and total only appear
-     when the panel asks for more than one, so the common one-item order
-     keeps reading as the price the shop already listed. */
-  function orderTokens(product, photoNote, qty) {
+     the sheet or the database left blank. Product, price and quantity
+     always appear; the line total only when the listing carries a number,
+     because an invented price is worse than a missing one. Fitment rides on
+     the name line, and the listed colour/size cells act as the variant. */
+  function orderTokens(product, qty) {
     var units = Math.max(1, Math.min(99, Math.floor(Number(qty) || 1)));
-    var lines = ["Product Name: " + product.name];
+    var fitment = [product.brand, product.model].filter(Boolean).join(" - ");
+    var lines = ["Product: " + product.name + (fitment ? " (" + fitment + ")" : "")];
     var priceText = product.price
       || (U.isSet(window.FIXON.priceNote) ? window.FIXON.priceNote : "Price on request");
     lines.push("Price: " + priceText);
     var category = product.categoryLabel || product.categoryRaw;
     if (category) lines.push("Category: " + category);
-    if (units > 1) {
-      lines.push("Quantity: " + units);
-      if (product.priceNumber) {
-        lines.push("Total: " + U.formatPrice(Math.round(product.priceNumber * units * 100) / 100));
-      }
+    if (product.colors && product.colors.length) lines.push("Colours listed: " + product.colors.join(", "));
+    if (product.sizes && product.sizes.length) lines.push("Sizes listed: " + product.sizes.join(", "));
+    lines.push("Quantity: " + units);
+    if (product.priceNumber) {
+      lines.push("Total: " + U.formatPrice(Math.round(product.priceNumber * units * 100) / 100));
     }
-    if (product.description) lines.push("Description: " + product.description);
     if (product.stock) lines.push("Availability: " + product.stock);
     var pageUrl = U.productPageUrl(product.id);
     if (pageUrl) lines.push("Product page: " + pageUrl);
-    return { details: lines.join("\n\n"), photo: photoNote || "" };
+    return { details: lines.join("\n"), extras: typedExtras(), date: U.orderDateText() };
   }
 
-  function orderFallback(product, host, reason) {
-    var S = share();
-    var src = S ? S.photoSrc(product) : "";
-    var note = src
-      ? "\n\nProduct photo: " + S.absolute(src) +
-        "\nThis message carries the address only - the photo needs attaching by hand."
-      : "\n\nThis listing has no photo to attach.";
-    var href = U.whatsappUrl("orderProduct", orderTokens(product, note));
+  /* Whatever the visitor typed in the order panel, if this page has one.
+     Empty boxes are left out rather than sent as blank lines. */
+  function typedExtras() {
+    var out = [];
+    [["Name", "orderName"], ["My phone", "orderDevice"],
+     ["Delivery address", "orderAddress"], ["Notes", "orderNotes"]].forEach(function (pair) {
+      var node = document.getElementById(pair[1]);
+      var text = node ? String(node.value || "").replace(/\s+/g, " ").trim().slice(0, 200) : "";
+      if (text) out.push(pair[0] + ": " + text);
+    });
+    /* The trailing break belongs to the extras, so the closing sentence
+       always starts on its own line whether they are filled in or not. */
+    return out.length ? out.join("\n") + "\n" : "";
+  }
+
+  /* The click itself. The tap is the user activation, so window.open is
+     still allowed at this moment; a browser that blocks the new tab gets
+     the same address as a plain navigation, which a blocker leaves alone.
+     The button wears a short loading label so the click always visibly
+     does something, and nothing is claimed about delivery - WhatsApp
+     shows the message and the visitor sends it. */
+  function orderNow(product, button) {
+    if (button.getAttribute("data-sending") === "1") return;   /* already in flight */
+    var href = U.whatsappUrl("orderProduct", orderTokens(product, orderQuantity(product)));
     if (!href) {
       if (window.showToast) window.showToast("FIXON's WhatsApp number is not set in js/config.js, so this order cannot be sent from the site yet.", "error");
       return;
     }
-    var link = el("a", "btn btn-whatsapp order-fallback", "Open WhatsApp with these details");
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.title = "Opens WhatsApp with the product details and the photo address. No photo is attached automatically.";
-    /* A failed server send can repeat as often as the visitor clicks, so the
-       way out is replaced rather than piled up under the buttons. */
-    var previous = host.querySelector(".order-fallback");
-    if (previous) previous.remove();
-    host.appendChild(link);
-    if (window.showToast) {
-      window.showToast(reason + " The details can still go to FIXON - use the WhatsApp button below"
-        + (src ? " and attach the photo yourself." : "."), "warn");
-    }
-  }
-
-  /* ------------------------------------------------------------------ *
-   * ORDER FROM THE SERVER - api/whatsapp-order.js
-   * ------------------------------------------------------------------ *
-   * When FIXON has deployed the WhatsApp Cloud API function, one click is the
-   * whole job: that function re-reads the product from the shop's own sheet,
-   * downloads the photo, uploads it to WhatsApp and posts it to the shop's
-   * number with the order caption. The visitor selects no contact and loses no
-   * photo, which is what the device share sheet cannot promise.
-   *
-   * Two rules hold here:
-   *   - Only the product id, a one-click nonce and the visitor's own typed
-   *     words are posted. Name, price, category and photo come back from the
-   *     server's reading of the sheet, so nothing on this page can put an
-   *     invented price or a foreign picture in front of the shop. No credential
-   *     is referenced, sent or needed by the browser - the token lives in the
-   *     host's environment variables and never in this file.
-   *   - "Sent" is said only when the function reports a WhatsApp message id.
-   *     Every other answer states which step failed and still hands over the
-   *     share / WhatsApp-link route, so a rejected request never swallows an
-   *     order.
-   * ------------------------------------------------------------------ */
-
-  /* Each code the function can answer, in the visitor's terms. The server's own
-     sentence is a developer's string; this one says what to do about it. */
-  var ORDER_ERROR_TEXT = {
-    not_configured: "FIXON has not switched on server-side WhatsApp ordering yet.",
-    origin_not_allowed: "This site's address is not allowed to post orders to FIXON.",
-    unknown_product: "That item is not on FIXON's product list any more.",
-    product_out_of_stock: "FIXON lists that item as out of stock, so it cannot be ordered right now.",
-    image_fetch_failed: "FIXON's server could not download this product's photo.",
-    image_too_large: "This product's photo is bigger than WhatsApp accepts.",
-    image_type_rejected: "This product's photo address is not an image WhatsApp can take.",
-    media_upload_failed: "WhatsApp refused the photo upload.",
-    message_send_failed: "WhatsApp refused the order message.",
-    catalog_unreachable: "FIXON's product list could not be reached to check this order.",
-    catalog_misformatted: "FIXON's product list is not readable at the moment.",
-    duplicate_request: "This order has already been sent.",
-    rate_limited: "Too many orders have just been sent from here - try again in a few minutes.",
-    invalid_product_id: "This listing's id is not one FIXON's server recognises.",
-    invalid_nonce: "The order could not be checked as a fresh click.",
-    invalid_field: "One of the typed details was not accepted - a link or a phone number cannot go inside these boxes.",
-    invalid_request: "The order was incomplete, so the server did not accept it.",
-    invalid_json: "The order did not reach the server in one piece.",
-    body_to_large: "That order was too large to send.",
-    method_not_allowed: "FIXON's order server does not take this kind of request.",
-    order_failed: "FIXON's order server could not finish the send."
-  };
-
-  /* A fresh token per click. The endpoint refuses a repeated nonce, so a
-     double tap cannot become two messages at the shop. */
-  function newNonce() {
-    var text = "";
-    try {
-      var bytes = new Uint8Array(16);
-      if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
-      else throw new Error("no random source");
-      for (var i = 0; i < bytes.length; i++) text += ("0" + bytes[i].toString(16)).slice(-2);
-    } catch (e) {
-      text = String(Date.now()) + String(Math.random()).replace(/\D/g, "");
-    }
-    return text.slice(0, 32);
-  }
-
-  /* Whatever the visitor already typed in the order panel, if this page has
-     one. Empty boxes are left out rather than sent as blank lines. */
-  function typedDetails() {
-    var out = {};
-    [["name", "orderName"], ["device", "orderDevice"], ["note", "orderNotes"]].forEach(function (pair) {
-      var node = document.getElementById(pair[1]);
-      var text = node ? String(node.value || "").replace(/\s+/g, " ").trim().slice(0, 160) : "";
-      if (text) out[pair[0]] = text;
-    });
-    return out;
-  }
-
-  function say(message, type) {
-    if (window.showToast) window.showToast(message, type);
-  }
-
-  function orderFromServer(product, endpoint, button, host) {
-    if (button.getAttribute("data-sending") === "1") return;   /* already in flight */
-    button.setAttribute("data-sending", "1");
-
     var label = button.textContent;
+    button.setAttribute("data-sending", "1");
     button.disabled = true;
     button.classList.add("is-busy");
-    button.textContent = "Sending to FIXON...";
-
+    button.textContent = "Opening WhatsApp...";
     function ready() {
       button.removeAttribute("data-sending");
       button.disabled = false;
       button.classList.remove("is-busy");
       button.textContent = label;
     }
-
-    var body = { productId: product.id, nonce: newNonce() };
-    var category = product.categoryLabel || product.categoryRaw;
-    if (category) body.category = category;
-    var customer = typedDetails();
-    if (Object.keys(customer).length) body.customer = customer;
-
-    fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify(body)
-    }).then(function (res) {
-      /* An error answer still carries the code worth naming, so the body is
-         read either way; a non-JSON reply is treated as a plain failure. */
-      return res.json().catch(function () { return {}; }).then(function (data) {
-        return { status: res.status, data: data || {} };
-      });
-    }).then(function (out) {
-      var data = out.data;
-      if (out.status === 200 && data.ok && data.delivered) {
-        ready();
-        var sent = data.product || {};
-        say("Sent to FIXON: " + (sent.name || product.name) +
-          (sent.price ? " (" + sent.price + ")" : "") + " with its photo." +
-          (data.whatsapp && data.whatsapp.to ? " Delivered to " + data.whatsapp.to + " on WhatsApp." : ""), "success");
-        return;
-      }
-      ready();
-      var why = ORDER_ERROR_TEXT[data.code] ||
-        (data.message && data.code ? data.message : "The order could not be sent.");
-      if (data.code === "not_configured" && data.missingConfig && data.missingConfig.length) {
-        why = why.replace(" yet.", " yet (server variables still to set: " + data.missingConfig.join(", ") + ").");
-      }
-      say(why, "error");
-      orderFallback(product, host, why);
-    }).catch(function () {
-      ready();
-      say("FIXON's order server could not be reached, so nothing was sent.", "error");
-      orderFallback(product, host, "The order server was unreachable.");
-    });
-  }
-
-  function orderNow(product, button, host) {
-    var endpoint = U.orderEndpoint();
-    if (endpoint) {
-      orderFromServer(product, endpoint, button, host);
-      return;
-    }
-    var S = share();
-    if (!S || !S.supported()) {
-      orderFallback(product, host, "This browser has no share sheet.");
-      return;
-    }
-    if (!S.claim()) return;                  /* a send is already in flight */
-    var label = button.textContent;
-    button.disabled = true;
-    button.classList.add("is-busy");
-    button.textContent = "Preparing photo...";
-
-    function release() {
-      S.release();
-      button.disabled = false;
-      button.classList.remove("is-busy");
-      button.textContent = label;
-    }
-
-    S.fileFor(product).then(function (file) {
-      return S.share({
-        title: product.name,
-        text: U.message("orderProduct", orderTokens(product, "")),
-        files: [file]
-      });
-    }).then(function () {
-      release();
-      /* A resolved share is the only moment it is true to say the photo went
-         with the message, so this is the only place that says it. */
-      if (window.showToast) window.showToast("Photo and details handed to the share sheet.", "success");
-    }, function (err) {
-      release();
-      if (err && err.name === "AbortError") return;   /* they dismissed the sheet */
-      orderFallback(product, host, (err && err.reason) ? err.reason : "The photo could not be attached.");
-    });
+    var win = window.open(href, "_blank", "noopener");
+    if (!win) { location.href = href; return; }
+    setTimeout(ready, 500);
   }
 
   function buildInfo(product) {
@@ -915,25 +760,22 @@
 
     var actions = el("div", "pd-actions");
 
-    /* Order on WhatsApp is the one-click path: the shop's server when FIXON has
-       deployed it, the device share sheet otherwise. "Add to order" stays the
-       order-list path. */
+    /* Order on WhatsApp opens FIXON's direct chat with this product's
+       details filled in - the visitor only presses send. "Add to order"
+       stays the order-list path. */
     var order = el("button", "btn btn-accent", "Order on WhatsApp");
     order.type = "button";
-    var serverOrder = U.orderEndpoint();
     if (soldOut) {
       order.disabled = true;
       order.classList.add("is-unconfigured");
       order.title = "FIXON lists this product as out of stock, so it cannot be ordered right now.";
-    } else if (serverOrder || U.isSet(window.FIXON.whatsappNumber)) {
-      order.title = serverOrder
-        ? "Sends this product's photo and details straight to FIXON's WhatsApp from the shop's server"
-        : "Shares this product's photo and details with FIXON on WhatsApp";
-      order.addEventListener("click", function () { orderNow(product, order, actions); });
+    } else if (U.whatsappDigits()) {
+      order.title = "Opens a WhatsApp chat with FIXON with this product's details filled in - press send there to submit the order";
+      order.addEventListener("click", function () { orderNow(product, order); });
     } else {
       order.classList.add("is-unconfigured");
       order.setAttribute("aria-disabled", "true");
-      order.title = "Neither FIXON.orderApi.endpoint nor FIXON.whatsappNumber is set in js/config.js";
+      order.title = "FIXON.whatsappNumber is not set in js/config.js";
     }
     actions.appendChild(order);
 

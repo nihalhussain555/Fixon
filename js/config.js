@@ -45,8 +45,13 @@
      * 2. CONTACT
      * ------------------------------------------------------------------ */
     phoneDisplay: "+91 7306024668",
-    phoneDial: "7306024668", // digits only, with country code
-    whatsappNumber: "7306024668", // digits only, no "+" or spaces
+    phoneDial: "917306024668", // digits only, WITH country code (tel:+ links use this as-is)
+    /* wa.me needs the full international number: country code first, then the
+     * subscriber number, digits only. js/config.js strips any +, spaces,
+     * brackets or hyphens before building a link, but the value below must
+     * still carry the country code - a bare local number is not routable
+     * through wa.me. */
+    whatsappNumber: "917306024668", // +91 73060 24668 as wa.me wants it
     email: "fixoninnovative@gmail.com",
     addressLine: "Kerala Malappuram district", // street / building line
     addressCity: "MELATTUR",
@@ -83,27 +88,24 @@
         "Hi {shop}, I have a question about {topic}.\n\n{message}\n\nDevice: {device}\nBest time to reply: {when}\n\n- {customer} ({contact})",
 
       /* The order tray (js/order.js) builds one message from the items the
-         visitor added, in the same labelled shape the single-product order
-         button uses: {items} arrives as one "Product Name / Price / Category /
-         Quantity" block per item, separated by a blank line. {lead} is
-         "this product." or "these products." so a one-item list still reads
-         correctly. {priced} is the total line and {extras} whatever the
-         visitor typed. {photo} is empty when the pictures really went into the
-         share sheet, and otherwise names each item whose photo did not, gives
-         its address, and says the attachments have to happen by hand. Nothing
-         is submitted anywhere: WhatsApp opens with this text and the visitor
-         sends it themselves. */
+         visitor added. {items} arrives as one labelled block per item -
+         "Product / Price / Quantity / Total" (plus the fitment in the name
+         line and the total only when the sheet carries a price) - separated
+         by a blank line. {priced} is the grand-total line, {extras} whatever
+         the visitor typed (name, phone model, delivery address, notes) and
+         {date} the day the message was prepared. Nothing is submitted
+         anywhere: the button opens a direct chat with FIXON's WhatsApp
+         through https://wa.me/ and the visitor presses send there. */
       order:
-        "Hello! I am interested in ordering {lead}\n\n{items}\n\n{priced}\n{extras}Please confirm availability and delivery details.{photo}",
+        "Hello! I would like to place an order.\n\n{items}\n\n{priced}\n{extras}Order date: {date}\n\nPlease confirm availability and delivery details.",
 
-      /* Order on WhatsApp (js/shop.js): one product sent straight from its details
-         panel. {details} arrives as the labelled lines that this listing can
-         actually answer - a product with no category cell simply has no
-         category line - and {photo} is either empty, because the picture went
-         through as a real file, or the address of it plus a note that the
-         visitor has to attach it themselves. */
+      /* Order on WhatsApp (js/shop.js): one product sent straight from its
+         details panel through the same direct wa.me chat. {details} arrives
+         as the labelled lines this listing can actually answer - a product
+         with no category cell simply has no category line - followed by
+         {extras} and {date} as above. */
       orderProduct:
-        "Hello! I am interested in ordering this product.\n\n{details}\n\nPlease confirm availability and delivery details.{photo}"
+        "Hello! I would like to place an order.\n\n{details}\n\n{extras}Order date: {date}\n\nPlease confirm availability and delivery details."
     },
 
     /* ------------------------------------------------------------------ *
@@ -290,11 +292,11 @@
      * have to pick a contact or keep the photo safe in their gallery.
      *
      * endpoint   The deployed function's address, e.g.
-     *            "https://fixon.vercel.app/api/whatsapp-order". Leave it "" (or
-     *            a SET_ME_* value) and the button behaves exactly as it does
-     *            today: it shares the verified photo through the device, and
-     *            falls back to a WhatsApp link. Nothing is silently downgraded -
-     *            the button says which route it took.
+     *            "https://fixon.vercel.app/api/whatsapp-order". NOT USED by
+     *            the order buttons any more: they always open a direct
+     *            wa.me chat with FIXON's number now, which is what the shop
+     *            asked for. The function file stays for a possible future
+     *            route and nothing calls it while this decision holds.
      *
      * There is deliberately nowhere in this file for an access token, a phone
      * number ID or an app secret. Those live in the hosting provider's
@@ -356,10 +358,35 @@
     return fill(template, Object.assign({ shop: FIXON.name }, tokens || {}));
   }
 
+  /* The shop number in the exact shape wa.me demands: digits only, country
+   * code first. Any +, spaces, brackets or hyphens the owner may type are
+   * stripped here, so js/config.js can carry the readable form. An empty,
+   * placeholder or implausible value returns null and every caller then
+   * disables its button instead of opening a chat with nobody. */
+  function whatsappDigits() {
+    if (!isSet(FIXON.whatsappNumber)) return null;
+    var digits = String(FIXON.whatsappNumber).replace(/[^\d]/g, "");
+    return digits.length >= 8 && digits.length <= 15 ? digits : null;
+  }
+
+  /* The one entry point for a direct WhatsApp chat: the official wa.me URL
+     with the message encoded into it. This never uses navigator.share or any
+     device share sheet - the visitor lands straight in FIXON's chat and only
+     has to press send. */
+  function whatsappDirect(text) {
+    var digits = whatsappDigits();
+    if (!digits) return null;
+    return "https://wa.me/" + digits + "?text=" + encodeURIComponent(String(text || ""));
+  }
+
   /* WhatsApp: one number, one entry point, pre-filled message. */
   function whatsappUrl(messageKey, tokens) {
-    if (!isSet(FIXON.whatsappNumber)) return null;
-    return "https://wa.me/" + FIXON.whatsappNumber + "?text=" + encodeURIComponent(message(messageKey, tokens));
+    return whatsappDirect(message(messageKey, tokens));
+  }
+
+  /* The day the order was prepared, in the shop's own locale. */
+  function orderDateText() {
+    return new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   }
 
   /* The address that opens one listing on the shop page (js/shop.js reads
@@ -385,11 +412,12 @@
     return isSet(FIXON.phoneDial) ? "tel:+" + FIXON.phoneDial.replace(/[^\d]/g, "") : null;
   }
 
-  /* The order endpoint, or null. An empty or SET_ME_* value is not a broken
-     setting but a choice: the page keeps using the device share and the wa.me
-     link. Only a real http(s) address (or a same-site path) is ever passed to
-     fetch, so a half-typed value in config.js cannot make the shop's own page
-     post an order somewhere unexpected. */
+  /* The order endpoint, or null. Nothing calls this any more - the order
+     buttons always open the direct wa.me chat - but the helper and the
+     orderApi block above stay so a future server-side route can be switched
+     on without digging the plumbing back out. Only a real http(s) address
+     (or a same-site path) is ever returned, so a half-typed value in
+     config.js cannot point any future caller somewhere unexpected. */
   function orderEndpoint() {
     var raw = FIXON.orderApi && FIXON.orderApi.endpoint;
     if (!isSet(raw)) return null;
@@ -469,8 +497,11 @@
   window.fixonUtils = {
     isSet: isSet,
     fill: fill,
+    whatsappDigits: whatsappDigits,
+    whatsappDirect: whatsappDirect,
     whatsappUrl: whatsappUrl,
     message: message,
+    orderDateText: orderDateText,
     telUrl: telUrl,
     orderEndpoint: orderEndpoint,
     productPageUrl: productPageUrl,

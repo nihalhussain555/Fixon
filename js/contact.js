@@ -149,8 +149,9 @@
     }
 
     function messageUrl() {
-      if (!U.isSet(CFG.whatsappNumber)) return null;
-      return "https://wa.me/" + CFG.whatsappNumber + "?text=" + encodeURIComponent(buildMessage());
+      /* Same direct wa.me route as the order buttons: the number is verified
+         and stripped to digits by js/config.js before anything is opened. */
+      return U.whatsappDirect(buildMessage());
     }
 
     /* The preview box is what makes "copy" trustworthy: the visitor sees the
