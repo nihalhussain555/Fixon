@@ -2,14 +2,18 @@
 
 A static website for an independent accessories shop: mobile covers, tempered
 glass, pop sockets, mugs, bottles, keychains, mousepads and customised gifts,
-with a device-fitment finder and a **product shop fed by one plain-text
-list** (`data/catalog.csv`). Visitors collect items in an order list and
+with a device-fitment finder and a **product shop fed entirely by Supabase**
+(`admin/index.html` is the dashboard the shop edits; the site reads exactly
+those rows). Visitors collect items in an order list and
 send it to the shop on WhatsApp. (The old repair/services pages are archived
-in `_removed-repair/`.)
+in `_removed-repair/`. The CSV/spreadsheet catalog and `data/catalog.csv`
+have been removed - Supabase is the only product source.)
 
-There is **no backend, no framework, no build step and no database.** HTML,
+There is **no framework, no build step and no server code of our own.** HTML,
 CSS and vanilla JavaScript only, so it deploys on GitHub Pages, Vercel or
-Cloudflare Pages exactly as it is.
+Cloudflare Pages exactly as it is; the products live in a Supabase project
+that the pages talk to over its REST API with the public anon key under Row
+Level Security.
 
 ## What the site does and does not claim
 
@@ -27,8 +31,8 @@ it.
   The contact form prepares text locally and opens WhatsApp or
   copy-to-clipboard; it does not submit anything, and it says so on screen.
 - **Nothing is real-time.** The product list is re-read every
-  `refreshMinutes` (30), and a published CSV can lag behind an edit, so the
-  pages show when the data was read rather than claiming it is live.
+  `refreshMinutes` (30), so the pages show when the data was read rather than
+  claiming it is live.
 
 ## Files
 
@@ -44,7 +48,9 @@ about.html            who FIXON is, process, FAQs
 css/style.css         design system, sections 1-27 (26 is the product dialog, 27 the order tray)
 css/responsive.css    1200 / 1024 / 900 / 860 / 720 / 560 / 420 / 380 + coarse pointer
 js/config.js          ALL business values + the shared helpers (window.FIXON)
-js/catalog.js         reads and validates the shop's list; one request per source
+js/catalog.js         reads the active Supabase products, validates them, caches
+                      one list per page (window.fixonCatalog)
+js/supabase.js        the Supabase REST + Auth calls the shop and admin make
 js/products.js        a row -> a card, safely; the Add to order button
 js/order.js           the order list and the WhatsApp message it composes
 js/shop.js            search, deep-link pills, owner notes, the Details dialog
@@ -53,9 +59,11 @@ js/finder.js          brands.html brand tiles
 js/contact.js         contact composer
 js/theme.js           light/dark, remembered per device (light is the default)
 js/app.js             hydration, nav, reveal, toasts, photo fallbacks
-data/catalog.csv      the shop's product list (currently labelled EXAMPLE rows - see below)
+admin/                the dashboard: sign-in, product list, add and edit rows
+supabase/SETUP.sql    the one-pass database setup (tables, RLS, bucket)
 images/               covers, accessories, brands, banners
-images/products/      drop a photo here and type only its file name in the sheet
+images/products/      drop a photo here and type only its file name in the
+                      dashboard's image field
 _removed-repair/      archived repair/services pages (not linked anywhere)
 api/whatsapp-order.js optional server-side WhatsApp delivery (WHATSAPP-ORDERS.md)
 package.json          declares ESM + Node 20 for that function; no dependencies
@@ -64,58 +72,55 @@ vercel.json           keeps URLs exact and sizes the function
 tools/                the order-endpoint test and a localhost runner that mounts it
 ```
 
-## The one file the owner edits
+## How the shop manages products
 
-`data/catalog.csv` — see **GOOGLE-SHEETS.md**. Header line:
+There is no product file in this repository any more. `data/catalog.csv` and
+GOOGLE-SHEETS.md are gone, and nothing reads a spreadsheet: the shop's items
+are rows of the Supabase `products` table, which `admin/index.html` edits and
+`js/catalog.js` reads. A newly added, active row appears on the shop pages on
+the next read, with no deploy.
 
-```
-name,price,description,image,category,active,featured,brand,model,url,images,colors,sizes,features,specs,stock,original_price,discount
-```
+| column | what it does |
+|---|---|
+| `name` | required, the card title |
+| `price` | a number; left null the card says "Price on request" |
+| `description` | the line under the title, up to 800 characters |
+| `category` | matched against `productCategories` in `js/config.js`; unknown text is kept and shown as written |
+| `image_url` | see below |
+| `stock` | an integer; `0` marks the item sold out and blocks the order button, empty means "not tracked" |
+| `stock_note` | free text in place of the count, e.g. "At the counter" |
+| `featured` | puts the item first in the home and category strips |
+| `is_active` | `false` hides the row from the site entirely (the dashboard still lists it) |
 
-Add one line per product, set `active` to `TRUE` to show it. Nothing else has
-to change; the shop pages pick it up on the next read. The last eight columns are
-optional: six of them fill the product view (the panel that opens when a product
-is tapped) with extra photos, colour chips, size chips, a feature list, a
-specification table and one status line, while `original_price` and `discount`
-put a struck list price and an "OFF" badge on the cards and in that panel —
-shown only when the shop typed them and they check out against `price`.
-**An empty cell renders as nothing** —
-the site never invents a colour, a spec, a discount or an availability claim, and
-a sheet still written to the first ten columns loads exactly as before.
+**An empty field renders as nothing** — the site never invents a colour, a
+spec, a discount or an availability claim.
 
-**The file ships with thirteen rows whose names all start with `EXAMPLE -`**
-(twelve active, one marked `active=FALSE` to show how hiding a row works).
-They exist so the pages can be tested with a populated list. Their names and
-prices are not FIXON's. Replace each one with a real item and a real price, or
-delete them, before publishing — a visitor cannot tell a placeholder from stock.
+### The `image_url` field
 
-### Writing the `image` cell
-
-The picture for a listing is chosen per row, not by a folder rule. Three shapes
-work:
+The picture is chosen per product. Three shapes work:
 
 ```
-cover-red.jpg                     a file you uploaded to images/products/
-images/accessories/mugs.jpg       a path inside this site
+cover-red.jpg                     a file in images/products/ of this site
+images/accessories/mugs.jpg       any path inside this site
 https://cdn.example.com/a.jpg     a picture hosted elsewhere (https only)
 ```
 
 A bare file name is looked for in `catalog.imageFolder` in `js/config.js`, so
-uploading the photo and typing `cover-red.jpg` is the whole job. Leave the cell
-blank and the category illustration is used instead. Full details in
-GOOGLE-SHEETS.md.
+uploading the photo and typing `cover-red.jpg` is the whole job. Anything that
+is not https or a same-site path is rejected and the category illustration is
+used instead.
 
 ## Where the business details live
 
 `js/config.js` holds every value the shop owns, in numbered sections. It is the
 only file to edit for a phone number, an address, hours, a message wording or
-the product-list address.
+the Supabase project the products come from.
 
 | to change | key |
 |---|---|
 | phone / WhatsApp | `phoneDial`, `whatsappNumber` — **one** number, never hard-coded elsewhere |
 | email, address, hours, map | `email`, `addressLine`, `openingHours`, `mapsUrl` |
-| product list address | `catalog.csvUrl` |
+| which Supabase project serves the products | `supabase.url`, `supabase.key` (anon) |
 | where a bare image file name points | `catalog.imageFolder` |
 | how often pages re-read it | `catalog.refreshMinutes` |
 | currency and the no-price wording | `currencySymbol`, `priceNote` |
@@ -144,23 +149,24 @@ Notes that save an hour:
   requests between them — which looks exactly like a missing `index.html`. Port
   80 on this machine is IIS, so a preview there shows the IIS landing page.
 - `fetch()` will not work from `file://` — that is why a server is needed.
-- The product list is read from `data/catalog.csv` locally (the
-  `localFallback`), so it works with no internet and no GitHub.
-- Add `?debug=1` to `shop.html` to see the owner notes panel: skipped rows,
-  rejected prices/images, and which source answered.
+- The product list is read from Supabase, so a local preview needs the
+  project to be configured in `js/config.js` and an internet connection.
+  Without it the shop pages honestly show "The online catalogue is not up
+  yet" — there is no local file any more to fall back to.
+- Add `?debug=1` to `shop.html` to see the owner notes panel: the read
+  failure behind an error, rejected prices/images, and which source answered.
 
-To test with products that are not the shop's, the safest route is a fixture CSV
-**outside this repository** pointed at by `localFallback`, so nothing invented
-can be pushed by accident. `data/catalog.csv` currently carries the compromise:
-rows that announce themselves as `EXAMPLE -` in every name. Never commit a
-plausible-looking invented price — it would go live as fact.
+Supabase is the only product source, so testing with items that are not the
+shop's means test rows in a **separate Supabase project** (point
+`supabase.url`/`supabase.key` at it while you check, then back). Never commit
+a plausible-looking invented price — with one source it goes live as fact.
 
 ## Deploy
 
 Push the branch, then pick one host. Nothing is built, so each one just serves
 the folder.
 
-**GitHub Pages** (the site and the CSV then both live in the same repo):
+**GitHub Pages**:
 repository → **Settings → Pages → Source: Deploy from a branch → `main` /
 `(root)` → Save**. It takes a minute, and the address becomes
 `https://<user>.github.io/<repo>/`. **As of 2026-10-30 Pages is not enabled on
@@ -178,22 +184,25 @@ command: *(empty)* → Output directory: `.` → Deploy.
 No rewrite rules or SPA fallback config is needed: every page is a real file,
 and `shop.html?cat=cases` style links are query strings, not paths.
 
-After deploying, check three things: the shop page shows your products,
-`Add to order` → `Send order on WhatsApp` opens WhatsApp with the list typed
-out - with the products' own photos attached on a phone that allows it - and the
+After deploying, check three things: the shop page shows the products from
+your Supabase project, `Add to order` → `Send order on WhatsApp` opens a
+direct chat with the shop's number and the list typed out, and the
 phone/WhatsApp links dial the shop.
 
-## Server-side WhatsApp orders
+## Server-side WhatsApp orders (inactive)
 
-`Order on WhatsApp` in the product view shares the photo through the visitor's
-own device until you switch on **see WHATSAPP-ORDERS.md**: a serverless function
-(`api/whatsapp-order.js`) that re-reads the product from your sheet, uploads its
-photo to the WhatsApp Cloud API and posts image + caption to the number you
-configure, so the visitor selects no contact and attaches nothing. It needs a
-Meta WhatsApp Business account and four environment variables; nothing about it
-touches the frontend beyond one address in `js/config.js` → `orderApi`, and no
-credential ever reaches a browser. Set that address back to `""` and the button
-returns to the device route.
+Every order button on the site opens a **direct `https://wa.me/` chat** with
+FIXON's number and the order written into it; the visitor only presses send
+there. No `navigator.share`, no device share menu, no attachment step - that
+was the point of the ordering fix, so nothing on the storefront calls the
+serverless function below.
+
+It stays in the repository for a possible future route: **see
+WHATSAPP-ORDERS.md** for `api/whatsapp-order.js`, which would post image +
+caption to the number you configure through the WhatsApp Cloud API. It needs
+a Meta WhatsApp Business account and four environment variables; nothing
+about it touches the frontend beyond one address in `js/config.js` →
+`orderApi`, which is `""` today, and no credential ever reaches a browser.
 
 ## Widths the layout is held to
 
@@ -205,13 +214,13 @@ its Add / WhatsApp buttons stick to the bottom of the panel on phones.
 
 ## Safety rules the code follows
 
-- A spreadsheet row is untrusted text. Every value is assigned with
-  `textContent`, never concatenated into `innerHTML`, so a cell containing
-  markup cannot execute.
-- Sheet links are filtered to `https://` or a same-site path; image cells must
-  end in a real image extension, so a `javascript:` or `data:` cell is rejected
+- A product row is untrusted text, whoever typed it. Every value is assigned
+  with `textContent`, never concatenated into `innerHTML`, so a field
+  containing markup cannot execute.
+- Image links are filtered to `https://` or a same-site path and must end in
+  a real image extension, so a `javascript:` or `data:` field is rejected
   and the row falls back to its category illustration.
-- One shared loader, one in-flight request, one timer: opening a page does not
-  stack duplicate listeners or hammer the CSV address.
-- A failed read keeps the last good list on screen (`cached` state) instead of
-  blanking the grid.
+- One shared loader, one in-flight request, one timer: opening a page does
+  not stack duplicate listeners or hammer the Supabase project.
+- A failed read keeps the last good list on screen (`cached` state) instead
+  of blanking the grid.

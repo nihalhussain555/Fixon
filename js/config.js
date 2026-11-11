@@ -13,10 +13,10 @@
  * of sending the visitor to a fake number or an empty map.
  *
  * PRODUCT DATA IS NOT IN THIS FILE.
- * Products come from a spreadsheet the shop owner edits - see the catalog
- * section and GOOGLE-SHEETS.md. Prices, descriptions, images and categories
- * in this file are never invented: a price only appears when the sheet
- * supplies one.
+ * Products come from the Supabase project configured in the supabase
+ * section - the /admin dashboard is where the shop edits them. Prices,
+ * descriptions, images and categories in this file are never invented: a
+ * price only appears when the product row supplies one.
  */
 (function () {
   var PLACEHOLDER = /^SET_ME/;
@@ -90,7 +90,7 @@
       /* The order tray (js/order.js) builds one message from the items the
          visitor added. {items} arrives as one labelled block per item -
          "Product / Price / Quantity / Total" (plus the fitment in the name
-         line and the total only when the sheet carries a price) - separated
+         line and the total only when the product row carries a price) - separated
          by a blank line. {priced} is the grand-total line, {extras} whatever
          the visitor typed (name, phone model, delivery address, notes) and
          {date} the day the message was prepared. Nothing is submitted
@@ -111,10 +111,10 @@
     /* ------------------------------------------------------------------ *
      * 6. PRODUCT CATEGORIES (accessories.html -> "Categories")
      * "id" is the slug the shop filter and the photo file use; "match"
-     * lists the words a spreadsheet may put in its category column and
+     * lists the words a product's category value may carry and
      * still count as this category (compared lower-case, as substrings).
      * A category with no live products renders as "not listed yet" instead
-     * of disappearing, so the grid stays honest about what is on the sheet.
+     * of disappearing, so the grid stays honest about what is in the catalog.
      * Photo convention: images/accessories/<photo>.jpg - drop a real photo
      * under the missing file name and it shows up with no code change.
      * ------------------------------------------------------------------ */
@@ -134,7 +134,7 @@
      * 7. DEVICE FINDER (brands.html)
      * Covers and protectors are sold by fitment, so this stays even without
      * repairs. "match" is the text the shop filter looks for in a listing's
-     * brand, so it must equal the brand value used in the spreadsheet.
+     * brand, so it must equal the brand value used in the product data.
      * "models" are fitment labels: they narrow the visible listings only.
      * Appearing here does NOT claim FIXON stocks a cover for that device -
      * edit this array to match what the shop actually carries.
@@ -166,9 +166,9 @@
     /* ------------------------------------------------------------------ *
      * 8. SHOP DISPLAY
      * Prices are business facts, so none are written in code. A listing shows
-     * a price only when its spreadsheet row supplies a number; until then the
-     * card keeps showing the text below. See the catalog section below and
-     * GOOGLE-SHEETS.md.
+     * a price only when its Supabase row supplies a number; until then the
+     * card keeps showing the text below. See the supabase and catalog
+     * sections below and supabase/SETUP.sql.
      * ------------------------------------------------------------------ */
     currencySymbol: "₹", // shown before a configured price
     priceNote: "Price on request",
@@ -189,10 +189,10 @@
      * 9b. SUPABASE - the product database and the admin dashboard
      * ----------------------------------------------------------------
      * Once FIXON.supabase below is filled in, the storefront's products and
-     * the /admin dashboard's edits live in the Supabase project instead of
-     * the CSV sheet: the dashboard writes, this reads, and a newly added
-     * product shows on the site without any deploy. js/supabase.js does the
-     * talking; supabase/SETUP.sql is the one-pass database setup.
+     * the /admin dashboard's edits live in the Supabase project: the
+     * dashboard writes, the site reads, and a newly added product shows on
+     * the shop without any deploy. js/supabase.js does the talking;
+     * supabase/SETUP.sql is the one-pass database setup.
      *
      * url  the project's API address, e.g. "https://abcd1234.supabase.co".
      *      Supabase dashboard -> Project Settings -> API -> Project URL.
@@ -203,9 +203,10 @@
      *      NEVER paste the "service_role" key or the database password
      *      here: anything in this file is public source code.
      *
-     * Left as SET_ME_* (or set wrong), the site falls back to the CSV
-     * catalog below and the dashboard shows a clear configuration message -
-     * the shop never goes blank because of a missing setting.
+     * Left as SET_ME_* (or set wrong), Supabase is the only product source,
+     * so the shop pages say the catalogue is not online yet and the
+     * dashboard shows a clear configuration message - nothing is invented
+     * to fill the grid, and there is no other data source to fall back to.
      * ---------------------------------------------------------------- */
     supabase: {
       url: "https://vtlvgqrdnlnngtxgkthj.supabase.co/",
@@ -213,72 +214,35 @@
     },
 
     /* ------------------------------------------------------------------ *
-     * 10. CATALOG SOURCE - the shop's product list
+     * 10. CATALOG DISPLAY - how the Supabase products are shown
      * ----------------------------------------------------------------
-     * With supabase configured above, this section only matters as the
-     * fallback: the CSV is read when Supabase is unconfigured or
-     * unreachable, so the shop keeps selling instead of showing an error.
-     * With Supabase NOT configured, this remains the product source exactly
-     * as before.
+     * There is exactly ONE product source: the Supabase project configured
+     * in section 9b. The CSV catalog and the data/catalog.csv file are gone;
+     * whatever the /admin dashboard holds in the products table is what the
+     * shop pages render, and nothing else. Unconfigured or unreachable
+     * Supabase means an honest "not online yet" panel, never sample data.
      *
-     * Products and their prices live in a spreadsheet, NOT in code, so the
+     * Products and their prices live in the database, NOT in code, so the
      * owner can add, edit, activate or hide an item without a developer.
+     * Only rows with is_active = true are displayed; a row with no price
+     * shows the "Price on request" text from section 8 rather than a
+     * made-up number.
      *
-     * WHAT WORKS AND WHAT CANNOT (this is the setting that breaks most often):
-     *   The browser must be able to fetch a *plain CSV* from another site, and
-     *   that response must carry "Access-Control-Allow-Origin: *". A OneDrive,
-     *   Google Drive, Dropbox or Excel-online SHARE link is an HTML viewer page
-     *   for a .xlsx file and sends no such header, so it can never be read here
-     *   - that is not a bug in this site, it is how browsers enforce cross-site
-     *   reads. Use one of the two addresses below instead.
-     *
-     *   csvUrl           ONE public CSV address. Two proven shapes:
-     *                    1. a CSV committed to this repository, read through
-     *                       https://raw.githubusercontent.com/<user>/<repo>/main/<path>
-     *                       (raw.githubusercontent.com does send the CORS
-     *                       header). Editing the file on GitHub updates the live
-     *                       catalogue on the next page load - no re-deploy.
-     *                    2. a Google Sheet published to the web as CSV, or its
-     *                       export?format=csv link (see GOOGLE-SHEETS.md).
-     *                    Leave it as a SET_ME_* value and the shop pages
-     *                    politely say the catalogue is not online yet - nothing
-     *                    is invented to fill the grid.
-     *   localFallback    A CSV inside this site, tried when csvUrl is not set
-     *                    or fails. It also serves as the offline copy for
-     *                    local testing, and as the stale-but-real copy if the
-     *                    raw link is ever unreachable. Same file either way:
-     *                    data/catalog.csv.
-     *   servicesCsvUrl   Unused since FIXON stopped listing repair services;
-     *                    kept "" so catalog.js skips it.
-     *   refreshMinutes   How often an open page re-reads the list. A published
-     *                    Google CSV can lag several minutes behind an edit and
-     *                    raw.githubusercontent.com caches briefly too, so the
-     *                    site never claims real-time updates.
-     *
-     * REQUIRED COLUMNS (header row, any order):
-     *   name, price, description, image, category, active
-     * OPTIONAL COLUMNS:
-     *   featured  (TRUE puts it first in the home page and category strips)
-     *   brand     (device brand, keeps brands.html deep links working)
-     *   model     (device series or model, same reason)
-     *   url       (link to a product page the shop wants to send people to)
-     *
-     * Only rows whose "active" column is TRUE are displayed.
-     * NEVER PUT CUSTOMER DATA, ORDER NOTES OR PRIVATE KEYS IN THIS SHEET: a
-     * published CSV is readable by anyone who has the link and search engines
-     * may index it. There is no place for service-account credentials or API
-     * keys in frontend code, and this site needs none.
+     *   refreshMinutes   How often an open page re-reads the list, so a
+     *                    product added in the dashboard appears without a
+     *                    reload. The site never claims real-time updates.
+     *   imageFolder      Where a bare file name typed in the dashboard's
+     *                    image field is looked for: upload the photo to
+     *                    images/products/ and type only "cover-red.jpg".
+     *                    A value that already contains a slash, or a full
+     *                    https:// address, is used exactly as written. Set
+     *                    it to "" to require full paths or URLs.
      * ---------------------------------------------------------------- */
     catalog: {
-      csvUrl: "https://raw.githubusercontent.com/nihalhussain555/Fixon/main/data/catalog.csv",
-      localFallback: "data/catalog.csv",
-      servicesCsvUrl: "",
       refreshMinutes: 30,
-      /* Where a bare file name in the sheet's "image" column is looked for.
-         Upload a photo to that folder in GitHub and type only "cover-red.jpg"
-         in the row - no path, no code change. A cell that already contains a
-         slash, or a full https:// address, is used exactly as written. Set it
-         to "" to turn the shortcut off and require full paths. */
+      /* Where a bare file name in the dashboard's image field is looked
+         for. Upload a photo to that folder and type only "cover-red.jpg"
+         in the row - no path, no code change. */
       imageFolder: "images/products"
     },
 
@@ -286,7 +250,7 @@
      * 11. ORDER ENDPOINT - server-side WhatsApp Cloud API delivery
      * ----------------------------------------------------------------
      * api/whatsapp-order.js is a Vercel serverless function that re-reads the
-     * product from the shop's own sheet, downloads its photo, uploads it to the
+     * product row, downloads its photo, uploads it to the
      * WhatsApp Cloud API and posts it to the shop's number with the order
      * caption. Because the delivery happens on a server, the visitor does not
      * have to pick a contact or keep the photo safe in their gallery.
@@ -327,7 +291,7 @@
      * This file deliberately contains no review scores, no sales counts and
      * no warranty promises. Those are business facts only FIXON can confirm.
      * Product prices are the same kind of fact, so they live in the owner's
-     * spreadsheet and stay hidden until a row supplies one.
+     * Supabase products table and stay hidden until a row supplies one.
      */
   };
 

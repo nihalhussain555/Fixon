@@ -17,8 +17,9 @@
    appears nowhere in this repository.
 
    Configuration: js/config.js -> FIXON.supabase. url or key left as a
-   SET_ME_* sentinel means "not wired up", which every caller must handle by
-   falling back to the CSV catalog rather than showing an empty shop.
+   SET_ME_* sentinel means "not wired up". Supabase is the only product
+   source, so every caller must then show its honest "not online yet"
+   state instead of an empty or invented shop.
    ========================================================================== */
 (function () {
   "use strict";

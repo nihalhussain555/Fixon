@@ -197,15 +197,16 @@ create policy "admins remove product images"
 
 
 -- --------------------------------------------------------------------------
--- 7. MIGRATE THE EXISTING CSV (optional, one-off)
+-- 7. BRING YOUR OWN LIST IN (optional, one-off)
 -- --------------------------------------------------------------------------
--- The site ships with data/catalog.csv. Supabase's dashboard cannot read a
--- CSV from your disk, so import it like this:
---   Table editor -> products -> Import data from file -> upload catalog.csv
+-- The site no longer carries a product file, so this table is the only
+-- place products live: add them one by one in /admin, or bulk-import your
+-- old spreadsheet by exporting it as CSV and using
+--   Table editor -> products -> Import data from file
 -- Then map the columns once: name->name, description->description,
 -- price->price, category->category, image->image_url, active->is_active
 -- (TRUE/FALSE), and leave id/stock/created_at/updated_at to their defaults.
--- A bare file name in the sheet's image column needs the site folder prefix
--- to work off-site; either keep the full "images/products/xxx.jpg" path and
--- serve images from the site, or re-upload the photos through the admin
--- dashboard once and let it fill image_url with the Supabase address.
+-- A bare file name in image_url only resolves when it is a photo inside
+-- images/products/ of the deployed site; for anything else re-upload it
+-- through the admin dashboard once and let it fill image_url with the
+-- Supabase address.

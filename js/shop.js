@@ -1,18 +1,18 @@
 /* ==========================================================================
    FIXON - products page (shop.html)
    --------------------------------------------------------------------------
-   Everything on this page comes from the shop's spreadsheet through
-   js/catalog.js. Nothing is invented: a blank price cell shows "Price on
+   Everything on this page comes from the shop's Supabase products table
+   through js/catalog.js. Nothing is invented: a blank price shows "Price on
    request", a missing image shows the category picture, and a row the owner
    marked inactive never reaches the screen.
 
    Trust rules, because the data is user-editable text:
-   - Spreadsheet values are only ever assigned with textContent. No cell is
+   - Database values are only ever assigned with textContent. No field is
      concatenated into innerHTML anywhere on this page.
    - Query-string values (?brand=, ?model=, ?cat=) go through the same rule,
      so a crafted link cannot inject markup.
-   - Links from the sheet are filtered by js/catalog.js to https or a
-     same-site path.
+   - Image links coming from a row are filtered by js/catalog.js to https or
+     a same-site path.
    ========================================================================== */
 (function () {
   "use strict";
@@ -62,7 +62,7 @@
   }
 
   /* Search is the only control on this page, so the list has one ordering:
-     rows the shop marked featured lead, then the sheet's own order. */
+     rows the shop marked featured lead, then the order Supabase returns. */
   function ordered(list) {
     return list.slice().sort(function (a, b) {
       if (a.featured !== b.featured) return a.featured ? -1 : 1;
@@ -76,7 +76,7 @@
    * The page has no category buttons any more, but links into it still carry
    * ?cat=, ?brand= and ?model= (the category tiles, the brand finder). A
    * visitor who arrives that way is filtered, so the filter has to be visible
-   * and one click has to undo it. Labels come from the sheet's own categories;
+   * and one click has to undo it. Labels come from the configured categories;
    * anything unknown is shown as written, through textContent only.
    * ------------------------------------------------------------------ */
   function categoryLabel(id) {
@@ -147,10 +147,10 @@
       bits.push("list read at " + time);
     }
     node.appendChild(el("span", null, bits.join(" · ")));
-    if (snapshot.fromCache) node.appendChild(el("span", "st-note", "The sheet could not be reached just now."));
+    if (snapshot.fromCache) node.appendChild(el("span", "st-note", "Supabase could not be reached just now."));
   }
 
-  /* A sheet problem is a shop-side detail, so visitors get plain, useful copy
+  /* A read problem is a shop-side detail, so visitors get plain, useful copy
      and a way to enquire. The technical reason only appears with ?debug=1. */
   function paintState(snapshot) {
     var panel = byId("catalogProblem");
@@ -167,7 +167,7 @@
       : "The catalogue could not be read just now"));
     panel.appendChild(el("p", null, snapshot.status === "unset"
       ? "FIXON still answers directly: tell us the device and what you need, and we will confirm fit, stock and price before you travel."
-      : "The shop list is fine - the connection to it is not. Try again in a moment, or send the enquiry to FIXON and we will answer from the counter."));
+      : "The shop list itself is fine - the connection to Supabase is not. Try again in a moment, or send the enquiry to FIXON and we will answer from the counter."));
 
     var row = el("div", "state-actions");
     var retry = el("button", "btn btn-sm btn-secondary", "Try again");
@@ -194,17 +194,17 @@
   function renderOwnerNotes(snapshot) {
     var box = byId("catalogNotes");
     if (!box) return;
-    /* Sheet diagnostics are for whoever edits the sheet: open the page with
+    /* Read diagnostics are for whoever manages the data: open the page with
        ?debug=1 to see them, so a visitor never reads a shop-side note. */
     var want = new URLSearchParams(location.search).get("debug") === "1";
     var lines = (snapshot.notes || []).slice();
     if (want && snapshot.error) lines.unshift("Read failure: " + snapshot.error);
-    if (want && snapshot.status === "unset") lines.unshift("No source set: fill catalog.csvUrl (or catalog.localFallback) in js/config.js.");
+    if (want && snapshot.status === "unset") lines.unshift("No product source: fill FIXON.supabase.url and FIXON.supabase.key in js/config.js.");
     if (want && snapshot.source) lines.push("Served by: " + snapshot.source.url + " (" + snapshot.source.kind + ")");
     if (!want || !lines.length) { box.hidden = true; box.textContent = ""; return; }
     box.hidden = false;
     box.textContent = "";
-    box.appendChild(el("b", null, "Sheet notes for the owner (" + lines.length + ")"));
+    box.appendChild(el("b", null, "Catalogue notes for the owner (" + lines.length + ")"));
     var ul = el("ul");
     lines.forEach(function (n) { ul.appendChild(el("li", null, n)); });
     box.appendChild(ul);
@@ -298,14 +298,14 @@
    * One entry point (window.fixonProductModal) is shared by every page that
    * shows cards, so shop, accessories and home all open the same view.
    *
-   * Layout: media left (one large photo, thumbnails when the sheet carries
+   * Layout: media left (one large photo, thumbnails when the row carries
    * more than one), information right. Below 900px it becomes one column with
    * the photo first and the buttons pinned above the keyboard-friendly edge.
    *
-   * Built with createElement + textContent only: the sheet is owner-edited
+   * Built with createElement + textContent only: a product row is owner-edited
    * text, so nothing from it is ever concatenated into markup. Colours, sizes,
-   * features, specs and the availability line come from the sheet's optional
-   * columns and a section is only built when that row actually has values.
+   * features, specs and the availability line come from the row's optional
+   * fields and a section is only built when that row actually has values.
    * ------------------------------------------------------------------ */
   var FOCUSABLE = "a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex='-1'])";
   var CLOSE_MS = 190;              /* the fade-out length in css/style.css */
@@ -633,8 +633,8 @@
     return Math.max(1, Math.min(99, Math.floor(inList) || 1));
   }
 
-  /* Fields this listing can actually answer: no line is printed for a cell
-     the sheet or the database left blank. Product, price and quantity
+  /* Fields this listing can actually answer: no line is printed for a field
+     the database left blank. Product, price and quantity
      always appear; the line total only when the listing carries a number,
      because an invented price is worse than a missing one. Fitment rides on
      the name line, and the listed colour/size cells act as the variant. */
@@ -737,7 +737,7 @@
 
     /* Supabase tracks a real quantity; 0 means the shop says it is gone, so
        ordering stops here instead of asking for something already sold out.
-       A CSV row or an untracked quantity (null) never sets this flag. */
+       An untracked quantity (null) never sets this flag. */
     var soldOut = product.stockCount === 0;
 
     if (product.stock) {

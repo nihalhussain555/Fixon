@@ -1,22 +1,21 @@
 /* ==========================================================================
-   FIXON - catalog loader (Google Sheets or any public CSV)
+   FIXON - catalog loader (Supabase only)
    --------------------------------------------------------------------------
-   One shared source of product data for the whole site. Pages ask this module
-   instead of fetching, so a page load costs exactly one request per source and
-   an auto-refresh never stacks up duplicates.
-
-   Spreadsheet columns: name, price, description, image, category, active
-   (+ optional featured, brand, model, url, and the detail columns the product
-   view uses: images, colors, sizes, features, specs, stock). See GOOGLE-SHEETS.md.
+   One shared source of product data for the whole site: the shop's Supabase
+   project, managed from the /admin dashboard. Pages ask this module instead
+   of fetching, so a page load costs exactly one request and an auto-refresh
+   never stacks up duplicates. The old CSV / Google-Sheets source is removed
+   - a product shows on the site only when the products table holds it with
+   is_active = true.
 
    Deliberate limits:
-   - No secrets here. A browser-side page can never hold a private credential,
-     so the sheet has to be published, which also makes it public. Nothing
-     customer-related belongs in it.
-   - No "real-time" claim. Published CSV can lag a few minutes behind an edit,
+   - No secrets here. Only the public anon key from js/config.js is used;
+     the Row Level Security policies in supabase/SETUP.sql are what keep a
+     visitor's read to active rows.
+   - No "real-time" claim. The list is re-read on the refresh cycle below,
      so the status text says when the data was read and nothing more.
-   - No invented values. A missing price stays "Price on request"; a missing or
-     rejected image falls back to the category picture.
+   - No invented values. A missing price stays "Price on request"; a missing
+     or rejected image falls back to the category picture.
    ========================================================================== */
 (function () {
   "use strict";
@@ -24,33 +23,22 @@
   var CFG = window.FIXON;
   var U = window.fixonUtils;
 
-  /* Supabase is the product source when js/config.js has it configured; the
-     CSV below stays the fallback for an unconfigured or unreachable project,
-     so the shop never blanks because of one missing setting. js/supabase.js
-     must load before this file (script order in the pages). */
+  /* js/supabase.js must load before this file (script order in the pages). */
   function supabaseOn() {
     return !!(window.fixonSupabase && window.fixonSupabase.configured());
   }
 
   var CACHE_KEY = "fixon_catalog_v1";
-  var SERVICE_CACHE_KEY = "fixon_services_v1";
-  var REQUEST_TIMEOUT = 12000;
-  var TRUTHY = { "TRUE": 1, "YES": 1, "Y": 1, "1": 1, "ACTIVE": 1, "OK": 1 };
   var IMAGE_TYPES = ["jpg", "jpeg", "png", "webp", "gif", "avif", "svg"];
-
-  /* name/description/image/category/active are required by the sheet header;
-     the rest are read when present and simply ignored when not. */
-  var REQUIRED_COLUMNS = ["name", "price", "description", "image", "category", "active"];
 
   var state = {
     status: "idle",        /* idle | loading | ready | cached | error | unset */
     rows: [],              /* active products only, normalised and safe */
-    notes: [],             /* rows skipped or repaired, with the reason */
-    source: null,          /* the URL or path that actually served the data */
+    notes: [],             /* reserved: per-row repairs, empty for Supabase reads */
+    source: null,          /* the project the data actually came from */
     fetchedAt: 0,
     fromCache: false,
     error: null,
-    services: null,        /* sheet services when configured, otherwise null */
     timer: null
   };
 
@@ -69,10 +57,10 @@
     return text.length > max ? text.slice(0, max - 1) + "…" : text;
   }
 
-  /* A published sheet is untrusted input: it can contain markup or script.
-     Nothing here builds HTML from a cell - values stay plain text and the
-     renderers assign them with textContent. This guard is the URL layer, the
-     only place a sheet value can ever reach a browser API. */
+  /* A database cell is still untrusted input: it can be hand-typed or come
+     from a compromised write. Nothing here builds HTML from a value - the
+     renderers assign text with textContent. This guard is the URL layer, the
+     only place a stored value can ever reach a browser API. */
   function safeImageUrl(raw) {
     var value = trim(raw);
     if (!value) return null;
@@ -100,14 +88,12 @@
     return value;
   }
 
-  /* One image cell, three ways to write it, all ending as a plain <img src>:
-       https://cdn.example.com/a.jpg   a picture hosted elsewhere
-       images/products/a.jpg           a path inside this site
-       a.jpg                           a bare file name
-     A bare name is looked for in catalog.imageFolder, which is the whole point
-     of that setting: the shop uploads a photo into one folder and types only
-     its file name in the sheet, while the picture itself stays chosen per row
-     instead of being picked from a fixed folder by category. */
+  /* One image value, three ways to write it, all ending as a plain <img src>:
+       https://<project>.supabase.co/storage/v1/object/public/...  the dashboard upload
+       images/products/a.jpg   a path inside this site
+       a.jpg                   a bare file name
+     A bare name is looked for in catalog.imageFolder, so the shop can upload
+     a photo into one folder and type only its file name in the dashboard. */
   function resolveImage(raw) {
     var value = safeImageUrl(raw);
     if (!value) return null;
@@ -125,7 +111,7 @@
     return U.photoSrc("accessories", "other");
   }
 
-  /* Which configured category does this sheet text belong to? Null means the
+  /* Which configured category does this stored text belong to? Null means the
      value is kept and listed under its own spelling rather than dropped. */
   function categoryIdFor(text) {
     var value = trim(text).toLowerCase();
@@ -150,236 +136,21 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Supabase row -> product
+   * Prices
    * --------------------------------------------------------------------------
-   * The dashboard's row becomes exactly the shape every renderer already
-   * consumes, so the storefront code did not change when the data moved.
-   * Values pass through the same guards the sheet uses: a hand-typed or
-   * compromised database cell is treated as untrusted input, never as HTML
-   * or as a script-capable URL. Ids follow the CSV rule (a slug of the
-   * name), so order trays and server-side order checks keep working across
-   * both sources; the database uuid is not the browsing id.
-   * ------------------------------------------------------------------ */
-  function supabaseStock(product, row) {
-    if (row.stock_note) return clip(row.stock_note, 60);
-    if (row.stock === null || row.stock === undefined || row.stock === "") return "";
-    var n = Number(row.stock);
-    if (!isFinite(n) || n < 0) return "";
-    product.stockCount = n;
-    return n > 0 ? "In stock (" + n + ")" : "Out of stock";
-  }
-
-  function toSupabaseProduct(row, used) {
-    var name = clip(row.name, 120);
-    if (!name) return null;
-    var priceNumber = row.price === null || row.price === undefined || row.price === ""
-      ? null : priceValue(row.price);
-    var image = resolveImage(row.image_url);
-    var categoryId = categoryIdFor(row.category);
-    var p = {
-      name: name,
-      description: clip(row.description, 800),
-      /* The DB stores a number; the offer check re-reads it as text the same
-         way a sheet cell would, keeping one price pipeline for both sources. */
-      priceText: priceNumber === null ? "" : String(row.price),
-      price: priceNumber === null ? null : U.formatPrice(priceNumber),
-      priceNumber: priceNumber,
-      wasPrice: null,
-      wasLabel: "",
-      discount: null,
-      category: categoryId,
-      categoryLabel: categoryLabel(categoryId) || clip(row.category, 40),
-      categoryRaw: clip(row.category, 40),
-      image: image,
-      photo: image || categoryPhoto(categoryId),
-      gallery: image ? [image] : [categoryPhoto(categoryId)],
-      colors: [],
-      sizes: [],
-      features: [],
-      specs: [],
-      stock: supabaseStock(p, row),
-      brand: "",
-      model: "",
-      featured: !!row.featured,
-      link: null,
-      /* Not a browsing id - the edit page's address and the dashboard's
-         row actions use this; the order payload keeps using p.id. */
-      dbId: String(row.id || "")
-    };
-    p.id = rowKey(name, 0, used);
-    return p;
-  }
-
-  function buildFromSupabase(rows) {
-    var products = [], used = {};
-    for (var i = 0; i < rows.length; i++) {
-      var p = toSupabaseProduct(rows[i], used);
-      if (p) products.push(p);
-    }
-    return products;
-  }
-
-  /* ------------------------------------------------------------------ *
-   * CSV parsing - quoted fields, "" escapes, CRLF, BOM
-   * ------------------------------------------------------------------ */
-  function parseCsv(text) {
-    var rows = [], row = [], field = "", quoted = false, i = 0, ch;
-
-    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-
-    for (i = 0; i < text.length; i++) {
-      ch = text.charAt(i);
-      if (quoted) {
-        if (ch === '"') {
-          if (text.charAt(i + 1) === '"') { field += '"'; i++; }
-          else quoted = false;
-        } else field += ch;
-      } else if (ch === '"') {
-        quoted = true;
-      } else if (ch === ",") {
-        row.push(field); field = "";
-      } else if (ch === "\n" || ch === "\r") {
-        if (ch === "\r" && text.charAt(i + 1) === "\n") i++;
-        row.push(field); field = "";
-        rows.push(row); row = [];
-      } else field += ch;
-    }
-    if (field !== "" || row.length) { row.push(field); rows.push(row); }
-
-    /* Drop fully blank lines; a stray trailing line is normal in exports. */
-    return rows.filter(function (r) {
-      for (var n = 0; n < r.length; n++) if (trim(r[n]) !== "") return true;
-      return false;
-    });
-  }
-
-  function headerMap(firstRow) {
-    var map = {}, missing = [];
-    for (var i = 0; i < firstRow.length; i++) {
-      /* Digits are kept: the optional photo columns are image2, image3..., and
-         stripping them would alias image2 onto the main image column. */
-      var key = trim(firstRow[i]).toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (key) map[key] = i;
-    }
-    for (var r = 0; r < REQUIRED_COLUMNS.length; r++) {
-      if (!(REQUIRED_COLUMNS[r] in map)) missing.push(REQUIRED_COLUMNS[r]);
-    }
-    return { map: map, missing: missing };
-  }
-
-  function cell(row, map, key) {
-    var index = map[key];
-    return index === undefined ? "" : trim(row[index]);
-  }
-
-  function isActive(value) {
-    return !!TRUTHY[trim(value).toUpperCase()];
-  }
-
+   * The database stores a number, but a hand-typed or imported cell can still
+   * arrive as text: "1499", "₹1,499.00", "Rs. 1,299". A misread price is worse
+   * than no price, because it shows the visitor a wrong figure, so only shapes
+   * that can be read safely are accepted:
+   *   1499          -> 1499
+   *   1,299 / 1.299 -> 1299   (groups of three after a separator)
+   *   1,299.00      -> 1299   (one or two final digits are the paise)
+   * "ask in store", "TBD", "12.13.14" and blanks return null, and the card
+   * then shows "Price on request" instead of a made-up number. */
   function isDigit(ch) {
     return ch >= "0" && ch <= "9";
   }
 
-  /* ------------------------------------------------------------------ *
-   * Optional detail columns
-   * ------------------------------------------------------------------ *
-   * The product view can show more than a name and a price, but only what the
-   * shop actually typed. These columns are read when the sheet has them and
-   * stay empty when it does not - an absent column renders as nothing at all,
-   * never as a guess. REQUIRED_COLUMNS is untouched, so a sheet written to the
-   * old six columns still loads exactly as before.
-   *
-   *   images / gallery    extra photos, separated by ; | or a new line
-   *   image2 ... image6   one extra photo per column, for owners who prefer it
-   *   colors / colour     colour names
-   *   sizes / size        size or variant names
-   *   features / highlights  short selling points
-   *   specs / specifications  "Label: value" pairs
-   *   stock / availability      plain status text, e.g. "In stock at the counter"
-   *   original_price / mrp   the struck-through list price, if the shop has one
-   *   discount / off         percent off, e.g. "20" or "20%"
-   *
-   * The two offer columns are checked against the selling price before they are
-   * shown; a claim that does not hold up is dropped and reported to the owner.
-   * ------------------------------------------------------------------ */
-  var LIST_LIMIT = 12;
-  var IMAGE_LIMIT = 8;
-
-  function cellAny(row, map, keys) {
-    for (var i = 0; i < keys.length; i++) {
-      var value = cell(row, map, keys[i]);
-      if (value) return value;
-    }
-    return "";
-  }
-
-  /* Splits on the separators a spreadsheet cell realistically contains, and
-     only falls back to commas when nothing else was used - so "TPU, soft grip"
-     stays one entry when the row uses semicolons elsewhere. */
-  function splitList(raw) {
-    var text = trim(raw);
-    if (!text) return [];
-    var parts = text.split(/[;|\n]+/);
-    if (parts.length < 2) parts = text.split(",");
-    return parts;
-  }
-
-  function textList(raw, maxChars) {
-    var out = [];
-    var parts = splitList(raw);
-    for (var i = 0; i < parts.length && out.length < LIST_LIMIT; i++) {
-      var value = clip(parts[i], maxChars || 60);
-      if (value) out.push(value);
-    }
-    return out;
-  }
-
-  function specList(raw) {
-    var out = [];
-    var parts = splitList(raw);
-    for (var i = 0; i < parts.length && out.length < LIST_LIMIT; i++) {
-      var part = trim(parts[i]);
-      if (!part) continue;
-      /* "Material: TPU" and "Camera bump - raised lip" are both a label and a
-         value; anything else stays one plain line rather than being forced. */
-      var pair = part.match(/^([^:-]{1,34})\s*[:–-]\s*(.+)$/);
-      if (pair) out.push({ label: clip(pair[1], 34), value: clip(pair[2], 90) });
-      else out.push({ label: "", value: clip(part, 90) });
-    }
-    return out;
-  }
-
-  /* One gallery, assembled in order: the image column first, then any extra
-     cells. Duplicates are dropped because owners often repeat the main photo. */
-  function galleryFor(main, fallback, row, map) {
-    var cells = splitList(cellAny(row, map, ["images", "gallery"]));
-    for (var n = 2; n <= 6; n++) {
-      var single = cell(row, map, "image" + n);
-      if (single) cells.push(single);
-    }
-    var out = [], seen = {};
-    if (main) { out.push(main); seen[main] = 1; }
-    for (var i = 0; i < cells.length && out.length < IMAGE_LIMIT; i++) {
-      var url = resolveImage(cells[i]);
-      if (!url || seen[url]) continue;
-      seen[url] = 1;
-      out.push(url);
-    }
-    if (!out.length && fallback) out.push(fallback);
-    return out;
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Row normalisation
-   * ------------------------------------------------------------------ */
-  /* Sheet prices arrive as text: "1499", "₹1,499.00", "Rs. 1,299", "1.299".
-     A misread price is worse than no price, because it shows the visitor a
-     wrong figure, so only shapes that can be read safely are accepted:
-       1499          -> 1499
-       1,299 / 1.299 -> 1299   (groups of three after a separator)
-       1,299.00      -> 1299   (one or two final digits are the paise)
-     "ask in store", "TBD", "12.13.14" and blanks return null, and the card then
-     shows "Price on request" instead of a made-up number. */
   function priceValue(text) {
     /* Keep digits, and keep a , or . only when it sits between digits. That
        drops the stray dot in "Rs." while keeping the grouping in "1,299". */
@@ -405,99 +176,88 @@
     return Math.round(value * 100) / 100;
   }
 
-  /* Optional offer columns. Both are the owner's claim, never ours:
-       original_price (mrp, list price) -> the figure shown struck through
-       discount (percent off)          -> the badge on the photo
-     A struck price only appears when it is genuinely higher than the selling
-     price, and a percentage badge only when it is a whole number from 1 to 95.
-     When both are present they must agree within a rounding step, otherwise the
-     cheaper claim wins and the other is dropped. */
-  function offerFor(priceNumber, row, map, problems) {
-    if (priceNumber === null) return { was: null, wasLabel: "", percent: null };
-    var wasText = cellAny(row, map, ["original_price", "originalprice", "mrp", "list_price", "strike_price", "was"]);
-    var discountText = cellAny(row, map, ["discount", "discount_percent", "discount_pct", "off", "savings"]);
-    var was = priceValue(wasText);
-    var percent = null;
-    var digits = trim(discountText).replace(/[^\d]/g, "");
-    if (digits) percent = Number(digits);
-    if (percent !== null && !(percent >= 1 && percent <= 95)) percent = null;
-    if (was !== null && was <= priceNumber) {
-      problems.push("original_price " + wasText + " is not above the price");
-      was = null;
-    }
-    if (was !== null && percent !== null) {
-      var claimed = Math.round((1 - priceNumber / was) * 100);
-      if (Math.abs(claimed - percent) > 2) {
-        problems.push("discount " + percent + "% does not match original_price " + wasText);
-        percent = null;
-      }
-    }
-    return { was: was, wasLabel: was === null ? "" : U.formatPrice(was), percent: percent };
+  /* ------------------------------------------------------------------ *
+   * Supabase row -> product
+   * --------------------------------------------------------------------------
+   * The dashboard's row becomes exactly the shape every renderer already
+   * consumes, so the storefront code never cares where a row came from.
+   * Values pass through the same guards a sheet used: a stored value is
+   * treated as untrusted input, never as HTML or as a script-capable URL.
+   * Ids are a slug of the name, so order trays saved on a
+   * visitor's device keep matching across edits; the database uuid rides
+   * along as dbId for nothing but the dashboard's own addresses.
+   * ------------------------------------------------------------------ */
+  function supabaseStock(row) {
+    if (row.stock_note) return clip(row.stock_note, 60);
+    if (row.stock === null || row.stock === undefined || row.stock === "") return "";
+    var n = Number(row.stock);
+    if (!isFinite(n) || n < 0) return "";
+    return n > 0 ? "In stock (" + n + ")" : "Out of stock";
   }
 
-  function toProduct(row, map, line) {
-    var name = clip(cell(row, map, "name"), 120);
-    if (!name) return { note: "line " + line + ": no product name" };
+  function stockCountOf(row) {
+    if (row.stock === null || row.stock === undefined || row.stock === "") return null;
+    var n = Number(row.stock);
+    return !isFinite(n) || n < 0 ? null : Math.floor(n);
+  }
 
-    var rawCategory = cell(row, map, "category");
-    var categoryId = categoryIdFor(rawCategory);
-    var rawImage = cell(row, map, "image");
-    var image = resolveImage(rawImage);
-    var priceText = cell(row, map, "price");
-    var priceNumber = priceValue(priceText);
-    var price = priceNumber === null ? null : U.formatPrice(priceNumber);
-    var problems = [];
-
-    /* A price the parser cannot read is a spreadsheet typo: the card still
-       shows "Price on request", and the owner is told which line to fix. */
-    if (priceText && price === null) problems.push("price \"" + clip(priceText, 24) + "\" is not a number");
-    if (rawImage && !image) problems.push("image \"" + clip(rawImage, 32) + "\" is not a usable picture, so the category illustration is used");
-    var offer = offerFor(priceNumber, row, map, problems);
-    var note = problems.length ? "line " + line + ": " + problems.join("; ") : "";
-
-    return {
-      note: note,
-      product: {
-        name: name,
-        description: clip(cell(row, map, "description"), 800),
-        priceText: priceText,
-        price: price,
-        priceNumber: priceNumber,
-        wasPrice: offer.was,
-        wasLabel: offer.wasLabel,
-        discount: offer.percent,
-        category: categoryId,
-        categoryLabel: categoryLabel(categoryId) || clip(rawCategory, 40),
-        categoryRaw: clip(rawCategory, 40),
-        image: image,
-        photo: image || categoryPhoto(categoryId),
-        gallery: galleryFor(image, categoryPhoto(categoryId), row, map),
-        colors: textList(cellAny(row, map, ["colors", "colour", "colours"]), 34),
-        sizes: textList(cellAny(row, map, ["sizes", "size"]), 34),
-        features: textList(cellAny(row, map, ["features", "highlights"]), 90),
-        specs: specList(cellAny(row, map, ["specs", "specifications"])),
-        stock: clip(cellAny(row, map, ["stock", "availability", "status"]), 60),
-        brand: clip(cell(row, map, "brand"), 40),
-        model: clip(cell(row, map, "model"), 60),
-        featured: isActive(cell(row, map, "featured")),
-        link: safeUrl(cell(row, map, "url"))
-      }
+  function toSupabaseProduct(row, used) {
+    var name = clip(row.name, 120);
+    if (!name) return null;
+    var priceNumber = row.price === null || row.price === undefined || row.price === ""
+      ? null : priceValue(row.price);
+    var image = resolveImage(row.image_url);
+    var categoryId = categoryIdFor(row.category);
+    var p = {
+      name: name,
+      description: clip(row.description, 800),
+      /* The DB stores a number; the card re-reads it as text the same way a
+         sheet cell used to, keeping one price pipeline. */
+      priceText: priceNumber === null ? "" : String(row.price),
+      price: priceNumber === null ? null : U.formatPrice(priceNumber),
+      priceNumber: priceNumber,
+      wasPrice: null,
+      wasLabel: "",
+      discount: null,
+      category: categoryId,
+      categoryLabel: categoryLabel(categoryId) || clip(row.category, 40),
+      categoryRaw: clip(row.category, 40),
+      image: image,
+      photo: image || categoryPhoto(categoryId),
+      gallery: image ? [image] : [categoryPhoto(categoryId)],
+      colors: [],
+      sizes: [],
+      features: [],
+      specs: [],
+      stock: supabaseStock(row),
+      /* null means "the shop does not track this item"; 0 is a real sold
+         out, which is what order.js and the details panel check. */
+      stockCount: stockCountOf(row),
+      brand: "",
+      model: "",
+      featured: !!row.featured,
+      link: null,
+      /* Not a browsing id - the edit page's address and the dashboard's
+         row actions use this; the order payload keeps using p.id. */
+      dbId: String(row.id || "")
     };
+    p.id = rowKey(name, 0, used);
+    return p;
   }
 
-  /* Only https links and same-site pages ever reach an href. */
-  function safeUrl(value) {
-    var text = trim(value);
-    if (!text) return null;
-    if (/^https:\/\//i.test(text)) return text;
-    if (/^[\w\-./?#&=]+$/.test(text) && text.indexOf("..") === -1 && !/^[a-z]+:/i.test(text)) return text;
-    return null;
+  function buildFromSupabase(rows) {
+    var products = [], used = {};
+    for (var i = 0; i < rows.length; i++) {
+      var p = toSupabaseProduct(rows[i], used);
+      if (p) products.push(p);
+    }
+    return products;
   }
 
   /* The order list in js/order.js lives on the visitor's device between visits,
-     so a product needs an id that survives the owner editing the sheet. "Row 6"
-     would point at a different product the moment a row is inserted or the rows
-     are re-sorted, and the order would silently ask for the wrong thing. The
+     so a product needs an id that survives the owner editing the row. "Row 6"
+     would point at a different product the moment a row is inserted or the
+     order changes, and the order would silently ask for the wrong thing. The
      name is the column the owner expects to be meaningful, so it is the key;
      two rows with the same name get -2, -3 on the second and third. */
   function rowKey(name, line, used) {
@@ -508,35 +268,6 @@
     while (used[id]) { id = stem + "-" + n; n += 1; }
     used[id] = true;
     return id;
-  }
-
-  function build(rows, source) {
-    var header = rows.length ? rows[0] : null;
-    if (!header) return { error: "The file has no rows." };
-
-    var parsed = headerMap(header);
-    if (parsed.missing.length) {
-      return { error: "Missing column(s): " + parsed.missing.join(", ") + ". The first row must be: " + REQUIRED_COLUMNS.join(", ") + "." };
-    }
-
-    var products = [], notes = [], used = {};
-    for (var i = 1; i < rows.length; i++) {
-      var line = i + 1;
-      var result = toProduct(rows[i], parsed.map, line);
-      if (!result.product) {
-        if (result.note && notes.length < 12) notes.push(result.note);
-        continue;
-      }
-      if (!isActive(cell(rows[i], parsed.map, "active"))) continue;  /* hidden by the owner */
-      result.product.id = rowKey(result.product.name, line, used);
-      if (result.note && notes.length < 12) notes.push(result.note);
-      products.push(result.product);
-    }
-
-    if (!products.length) {
-      return { error: "The sheet has no active products. Put TRUE in the active column of the rows to show." };
-    }
-    return { products: products, notes: notes, source: source };
   }
 
   /* ------------------------------------------------------------------ *
@@ -552,86 +283,10 @@
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
+
   /* ------------------------------------------------------------------ *
-   * Fetching
+   * Snapshot / notify
    * ------------------------------------------------------------------ */
-  /* Owners paste whatever Google hands them. Accept the edit link, the share
-     link and a published CSV link, and turn the first two into a CSV feed. */
-  function normalizeUrl(url) {
-    var value = trim(url);
-    if (!value) return null;
-    if (!/^https:\/\/docs\.google\.com\/spreadsheets\/d\//i.test(value)) return value;
-    if (/out:csv|format=csv|\/pub\?/i.test(value)) return value;
-
-    var id = value.replace(/^https:\/\/docs\.google\.com\/spreadsheets\/d\//i, "").split("/")[0].split("?")[0].split("#")[0];
-    var gid = (value.match(/[#&?]gid=(\d+)/i) || [])[1];
-    return "https://docs.google.com/spreadsheets/d/" + id + "/gviz/tq?tqx=out:csv" + (gid ? "&gid=" + gid : "");
-  }
-
-  /* The other half of the story: a link that cannot work is named here before
-     a single request goes out. A OneDrive, Drive or Dropbox share link serves an
-     HTML viewer for a binary .xlsx and never answers a cross-site browser read,
-     so fetching it wastes a round trip and leaves the owner with a misleading
-     "could not reach" error. The message says what to use instead. */
-  var UNSUITABLE = [
-    { test: /1drv\.ms|onedrive\.live\.com|sharepoint\.com|microsoft\.com\/_layouts/i,
-      why: "That is a OneDrive/SharePoint link: it opens an HTML viewer for the .xlsx file and does not answer a cross-site browser read. Save the sheet as CSV, commit it to this repository as data/catalog.csv, and point csvUrl at the raw.githubusercontent.com address of that file - or use a Google Sheet published to the web as CSV." },
-    { test: /drive\.google\.com/i,
-      why: "That is a Google Drive file link, not a published sheet. In Google Sheets use File > Share > Publish to web > CSV, or the spreadsheet's export?format=csv address." },
-    { test: /dropbox\.com/i,
-      why: "Dropbox share links do not answer a cross-site browser read. Commit the CSV into this site instead." },
-    { test: /\.xlsx?(?:\?|$|#)/i,
-      why: "An .xlsx file is a zipped workbook, not CSV. Export or publish the sheet as .csv first." }
-  ];
-
-  function sourceProblem(url) {
-    for (var i = 0; i < UNSUITABLE.length; i++) {
-      if (UNSUITABLE[i].test.test(url)) return UNSUITABLE[i].why;
-    }
-    return null;
-  }
-
-  function candidates() {
-    var list = [];
-    var remote = normalizeUrl(CFG.catalog.csvUrl);
-    if (remote && U.isSet(CFG.catalog.csvUrl)) list.push({ kind: "sheet", url: remote });
-    if (CFG.catalog.localFallback) list.push({ kind: "file", url: CFG.catalog.localFallback });
-    return list;
-  }
-
-  function request(url) {
-    var controller = typeof AbortController === "function" ? new AbortController() : null;
-    var timer = null;
-    var options = { cache: "no-store", credentials: "omit" };
-    if (controller) {
-      options.signal = controller.signal;
-      timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT);
-    }
-    return fetch(url, options).then(function (response) {
-      clearTimeout(timer);
-      if (!response.ok) throw new Error("The data source answered " + response.status + ".");
-      return response.text();
-    }, function () {
-      clearTimeout(timer);
-      throw new Error("Could not reach the data source. Check the address and that it allows cross-site reads.");
-    });
-  }
-
-  function loadFrom(list, index, previousError) {
-    if (index >= list.length) {
-      return Promise.reject(new Error(previousError || "No catalog source is configured."));
-    }
-    var entry = list[index];
-    return request(entry.url).then(function (text) {
-      var built = build(parseCsv(text), entry);
-      if (built.error) throw new Error(built.error + (entry.kind === "file" ? "" : " (reading " + entry.url + ")"));
-      return built;
-    }).catch(function (error) {
-      if (index + 1 < list.length) return loadFrom(list, index + 1, error.message);
-      throw error;
-    });
-  }
-
   function snapshot() {
     return {
       status: state.status,
@@ -640,8 +295,7 @@
       source: state.source,
       fetchedAt: state.fetchedAt,
       fromCache: state.fromCache,
-      error: state.error,
-      services: state.services
+      error: state.error
     };
   }
 
@@ -650,7 +304,7 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Public load - shared, so two callers mean one request, not two
+   * Loading
    * ------------------------------------------------------------------ */
 
   /* A failed read never blanks a page that already has rows: the last good
@@ -675,17 +329,31 @@
     return snapshot();
   }
 
-  /* Supabase first: one anon read, RLS-filtered to active rows. Any answer
-     short of a usable list - network down, key wrong, project unreachable -
-     falls through to the CSV, and the CSV's own failure then follows the
-     usual cached/last-good path. A configured project that returns zero
-     active products is treated like a source failure rather than shown as
-     an empty shop, because the previous source may still have real rows;
-     the dashboard, not this read, is where products get activated. */
-  function loadViaSupabase() {
-    return window.fixonSupabase.activeProducts().then(function (rows) {
+  /* The one source: Supabase. "Not configured" is its own honest state (the
+     shop has no product list online yet), and so is an empty project - the
+     dashboard, not this read, is where products get activated. */
+  function load() {
+    if (inflight) return inflight;
+
+    if (!supabaseOn()) {
+      state.status = "unset";
+      state.error = "Supabase is not configured. Set FIXON.supabase.url and FIXON.supabase.key in js/config.js; products from the admin dashboard then show here.";
+      notify();
+      return Promise.resolve(snapshot());
+    }
+
+    /* Rows already on screen stay visible while the new read is in flight. */
+    if (!state.rows.length) state.status = "loading";
+    notify();
+
+    inflight = Promise.resolve().then(function () {
+      return window.fixonSupabase.activeProducts();
+    }).then(function (rows) {
       var products = buildFromSupabase(rows);
-      if (!products.length) throw new Error("Supabase has no active products.");
+      if (!products.length) {
+        return applyFailure("The shop's Supabase project has no active products yet - switch Active on in the admin dashboard for the items to show here.");
+      }
+      inflight = null;
       state.rows = products;
       state.notes = [];
       state.source = { kind: "supabase", url: String(CFG.supabase.url).replace(/\/+$/, "") };
@@ -694,90 +362,12 @@
       state.error = null;
       state.status = "ready";
       saveCache(CACHE_KEY, { ts: state.fetchedAt, rows: products, notes: [], source: state.source });
-      inflight = null;
       notify();
       return snapshot();
     }, function (error) {
-      return loadCsvChain(error && error.message ? error.message : "Supabase could not be reached.");
+      return applyFailure(error && error.message ? error.message : "Supabase could not be reached.");
     });
-  }
-
-  /* The CSV candidate chain, shared by the plain-CSV boot and the Supabase
-     fallback. leadingError keeps the Supabase complaint in the message when
-     both sources end up failing. */
-  function loadCsvChain(leadingError) {
-    var list = candidates();
-    if (!list.length) {
-      state.status = "unset";
-      state.error = leadingError || null;
-      notify();
-      return Promise.resolve(snapshot());
-    }
-
-    var usable = [];
-    var blocked = leadingError || "";
-    list.forEach(function (entry) {
-      var why = sourceProblem(entry.url);
-      if (why) { if (!blocked) blocked = why; } else usable.push(entry);
-    });
-    if (!usable.length) return Promise.resolve(applyFailure(blocked));
-
-    /* Rows already on screen stay visible while the new read is in flight. */
-    if (!state.rows.length) state.status = "loading";
-    notify();
-
-    return loadFrom(usable, 0, blocked || null).then(function (built) {
-      state.rows = built.products;
-      state.notes = built.notes;
-      state.source = built.source;
-      state.fetchedAt = Date.now();
-      state.fromCache = false;
-      state.error = null;
-      state.status = "ready";
-      saveCache(CACHE_KEY, { ts: state.fetchedAt, rows: state.rows, notes: built.notes, source: built.source });
-      inflight = null;
-      notify();
-      return snapshot();
-    }, function (error) {
-      return applyFailure(error.message);
-    });
-  }
-
-  function load() {
-    if (inflight) return inflight;
-
-    if (supabaseOn()) {
-      if (!state.rows.length) state.status = "loading";
-      notify();
-      inflight = Promise.resolve().then(loadViaSupabase);
-      return inflight;
-    }
-
-    inflight = loadCsvChain(null);
     return inflight;
-  }
-
-  /* ------------------------------------------------------------------ *
-   * Optional services sheet - same columns, so the owner can manage both
-   * from one place. Unset means the configured lists are used instead.
-   * ------------------------------------------------------------------ */
-  function loadServices() {
-    var url = normalizeUrl(CFG.catalog.servicesCsvUrl);
-    if (!url || !U.isSet(CFG.catalog.servicesCsvUrl)) return Promise.resolve(null);
-
-    return request(url).then(function (text) {
-      var built = build(parseCsv(text), { kind: "sheet", url: url });
-      if (built.error) throw new Error(built.error);
-      state.services = built.products;
-      saveCache(SERVICE_CACHE_KEY, { ts: Date.now(), rows: built.products });
-      notify();
-      return state.services;
-    }).catch(function () {
-      var cached = readCache(SERVICE_CACHE_KEY);
-      state.services = cached ? cached.rows : null;
-      notify();
-      return state.services;
-    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -813,14 +403,15 @@
   }
 
   /* Only rows the owner marked featured. Nothing is promoted by default, so
-     the "Featured" strip is empty rather than misleading when the sheet has no
-     featured column - the pages hide it in that case. */
+     the "Featured" strip is empty rather than misleading when no product is
+     flagged - the pages hide it in that case. */
   function featured(limit) {
     return state.rows.filter(function (p) { return p.featured; }).slice(0, limit || 3);
   }
 
-  /* Configured categories with live counts, then any other spelling the sheet
-     used, so an unusual category value still gets a filter instead of vanishing. */
+  /* Configured categories with live counts, then any other spelling the
+     dashboard used, so an unusual category value still gets a filter instead
+     of vanishing. */
   function categories() {
     var counts = {}, out = [], i;
     for (i = 0; i < state.rows.length; i++) {
@@ -854,7 +445,6 @@
   function ensureStarted() {
     if (bootstrapped) return load();
     bootstrapped = true;
-    loadServices();
     startAutoRefresh();
     return load();
   }
@@ -871,7 +461,6 @@
     onReady: function (callback) {
       document.addEventListener("fixon:catalog", function (event) { callback(event.detail); });
       ensureStarted();
-    },
-    REQUIRED_COLUMNS: REQUIRED_COLUMNS
+    }
   };
 })();
