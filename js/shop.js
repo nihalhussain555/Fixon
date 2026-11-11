@@ -20,7 +20,7 @@
   var U = window.fixonUtils;
   var C = window.fixonCatalog;
 
-  var state = { category: "All", query: "", brand: "", model: "" };
+  var state = { category: "All", query: "", brand: "", model: "", deeplink: "" };
   var started = false;
 
   function el(tag, className, text) {
@@ -616,7 +616,7 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * ORDER NOW - hand the chat app the real photo, not a link to it
+   * ORDER ON WHATSAPP - hand the chat app the real photo, not a link to it
    * ------------------------------------------------------------------ *
    * Reading the picture and opening the share sheet both live in
    * window.fixonShare (js/app.js), which the order list uses the same way.
@@ -627,14 +627,28 @@
    * ------------------------------------------------------------------ */
   function share() { return window.fixonShare; }
 
-  /* Fields this listing can actually answer: no line is printed for a cell the
-     sheet left blank. */
-  function orderTokens(product, photoNote) {
+  /* Fields this listing can actually answer: no line is printed for a cell
+     the sheet or the database left blank. Quantity and total only appear
+     when the panel asks for more than one, so the common one-item order
+     keeps reading as the price the shop already listed. */
+  function orderTokens(product, photoNote, qty) {
+    var units = Math.max(1, Math.min(99, Math.floor(Number(qty) || 1)));
     var lines = ["Product Name: " + product.name];
-    lines.push("Price: " + (product.price
-      || (U.isSet(window.FIXON.priceNote) ? window.FIXON.priceNote : "Price on request")));
+    var priceText = product.price
+      || (U.isSet(window.FIXON.priceNote) ? window.FIXON.priceNote : "Price on request");
+    lines.push("Price: " + priceText);
     var category = product.categoryLabel || product.categoryRaw;
     if (category) lines.push("Category: " + category);
+    if (units > 1) {
+      lines.push("Quantity: " + units);
+      if (product.priceNumber) {
+        lines.push("Total: " + U.formatPrice(Math.round(product.priceNumber * units * 100) / 100));
+      }
+    }
+    if (product.description) lines.push("Description: " + product.description);
+    if (product.stock) lines.push("Availability: " + product.stock);
+    var pageUrl = U.productPageUrl(product.id);
+    if (pageUrl) lines.push("Product page: " + pageUrl);
     return { details: lines.join("\n\n"), photo: photoNote || "" };
   }
 
@@ -650,11 +664,15 @@
       if (window.showToast) window.showToast("FIXON's WhatsApp number is not set in js/config.js, so this order cannot be sent from the site yet.", "error");
       return;
     }
-    var link = el("a", "btn btn-whatsapp", "Open WhatsApp with these details");
+    var link = el("a", "btn btn-whatsapp order-fallback", "Open WhatsApp with these details");
     link.href = href;
     link.target = "_blank";
     link.rel = "noopener";
     link.title = "Opens WhatsApp with the product details and the photo address. No photo is attached automatically.";
+    /* A failed server send can repeat as often as the visitor clicks, so the
+       way out is replaced rather than piled up under the buttons. */
+    var previous = host.querySelector(".order-fallback");
+    if (previous) previous.remove();
     host.appendChild(link);
     if (window.showToast) {
       window.showToast(reason + " The details can still go to FIXON - use the WhatsApp button below"
@@ -662,7 +680,148 @@
     }
   }
 
+  /* ------------------------------------------------------------------ *
+   * ORDER FROM THE SERVER - api/whatsapp-order.js
+   * ------------------------------------------------------------------ *
+   * When FIXON has deployed the WhatsApp Cloud API function, one click is the
+   * whole job: that function re-reads the product from the shop's own sheet,
+   * downloads the photo, uploads it to WhatsApp and posts it to the shop's
+   * number with the order caption. The visitor selects no contact and loses no
+   * photo, which is what the device share sheet cannot promise.
+   *
+   * Two rules hold here:
+   *   - Only the product id, a one-click nonce and the visitor's own typed
+   *     words are posted. Name, price, category and photo come back from the
+   *     server's reading of the sheet, so nothing on this page can put an
+   *     invented price or a foreign picture in front of the shop. No credential
+   *     is referenced, sent or needed by the browser - the token lives in the
+   *     host's environment variables and never in this file.
+   *   - "Sent" is said only when the function reports a WhatsApp message id.
+   *     Every other answer states which step failed and still hands over the
+   *     share / WhatsApp-link route, so a rejected request never swallows an
+   *     order.
+   * ------------------------------------------------------------------ */
+
+  /* Each code the function can answer, in the visitor's terms. The server's own
+     sentence is a developer's string; this one says what to do about it. */
+  var ORDER_ERROR_TEXT = {
+    not_configured: "FIXON has not switched on server-side WhatsApp ordering yet.",
+    origin_not_allowed: "This site's address is not allowed to post orders to FIXON.",
+    unknown_product: "That item is not on FIXON's product list any more.",
+    product_out_of_stock: "FIXON lists that item as out of stock, so it cannot be ordered right now.",
+    image_fetch_failed: "FIXON's server could not download this product's photo.",
+    image_too_large: "This product's photo is bigger than WhatsApp accepts.",
+    image_type_rejected: "This product's photo address is not an image WhatsApp can take.",
+    media_upload_failed: "WhatsApp refused the photo upload.",
+    message_send_failed: "WhatsApp refused the order message.",
+    catalog_unreachable: "FIXON's product list could not be reached to check this order.",
+    catalog_misformatted: "FIXON's product list is not readable at the moment.",
+    duplicate_request: "This order has already been sent.",
+    rate_limited: "Too many orders have just been sent from here - try again in a few minutes.",
+    invalid_product_id: "This listing's id is not one FIXON's server recognises.",
+    invalid_nonce: "The order could not be checked as a fresh click.",
+    invalid_field: "One of the typed details was not accepted - a link or a phone number cannot go inside these boxes.",
+    invalid_request: "The order was incomplete, so the server did not accept it.",
+    invalid_json: "The order did not reach the server in one piece.",
+    body_to_large: "That order was too large to send.",
+    method_not_allowed: "FIXON's order server does not take this kind of request.",
+    order_failed: "FIXON's order server could not finish the send."
+  };
+
+  /* A fresh token per click. The endpoint refuses a repeated nonce, so a
+     double tap cannot become two messages at the shop. */
+  function newNonce() {
+    var text = "";
+    try {
+      var bytes = new Uint8Array(16);
+      if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes);
+      else throw new Error("no random source");
+      for (var i = 0; i < bytes.length; i++) text += ("0" + bytes[i].toString(16)).slice(-2);
+    } catch (e) {
+      text = String(Date.now()) + String(Math.random()).replace(/\D/g, "");
+    }
+    return text.slice(0, 32);
+  }
+
+  /* Whatever the visitor already typed in the order panel, if this page has
+     one. Empty boxes are left out rather than sent as blank lines. */
+  function typedDetails() {
+    var out = {};
+    [["name", "orderName"], ["device", "orderDevice"], ["note", "orderNotes"]].forEach(function (pair) {
+      var node = document.getElementById(pair[1]);
+      var text = node ? String(node.value || "").replace(/\s+/g, " ").trim().slice(0, 160) : "";
+      if (text) out[pair[0]] = text;
+    });
+    return out;
+  }
+
+  function say(message, type) {
+    if (window.showToast) window.showToast(message, type);
+  }
+
+  function orderFromServer(product, endpoint, button, host) {
+    if (button.getAttribute("data-sending") === "1") return;   /* already in flight */
+    button.setAttribute("data-sending", "1");
+
+    var label = button.textContent;
+    button.disabled = true;
+    button.classList.add("is-busy");
+    button.textContent = "Sending to FIXON...";
+
+    function ready() {
+      button.removeAttribute("data-sending");
+      button.disabled = false;
+      button.classList.remove("is-busy");
+      button.textContent = label;
+    }
+
+    var body = { productId: product.id, nonce: newNonce() };
+    var category = product.categoryLabel || product.categoryRaw;
+    if (category) body.category = category;
+    var customer = typedDetails();
+    if (Object.keys(customer).length) body.customer = customer;
+
+    fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      /* An error answer still carries the code worth naming, so the body is
+         read either way; a non-JSON reply is treated as a plain failure. */
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        return { status: res.status, data: data || {} };
+      });
+    }).then(function (out) {
+      var data = out.data;
+      if (out.status === 200 && data.ok && data.delivered) {
+        ready();
+        var sent = data.product || {};
+        say("Sent to FIXON: " + (sent.name || product.name) +
+          (sent.price ? " (" + sent.price + ")" : "") + " with its photo." +
+          (data.whatsapp && data.whatsapp.to ? " Delivered to " + data.whatsapp.to + " on WhatsApp." : ""), "success");
+        return;
+      }
+      ready();
+      var why = ORDER_ERROR_TEXT[data.code] ||
+        (data.message && data.code ? data.message : "The order could not be sent.");
+      if (data.code === "not_configured" && data.missingConfig && data.missingConfig.length) {
+        why = why.replace(" yet.", " yet (server variables still to set: " + data.missingConfig.join(", ") + ").");
+      }
+      say(why, "error");
+      orderFallback(product, host, why);
+    }).catch(function () {
+      ready();
+      say("FIXON's order server could not be reached, so nothing was sent.", "error");
+      orderFallback(product, host, "The order server was unreachable.");
+    });
+  }
+
   function orderNow(product, button, host) {
+    var endpoint = U.orderEndpoint();
+    if (endpoint) {
+      orderFromServer(product, endpoint, button, host);
+      return;
+    }
     var S = share();
     if (!S || !S.supported()) {
       orderFallback(product, host, "This browser has no share sheet.");
@@ -731,8 +890,13 @@
     }
     info.appendChild(priceRow);
 
+    /* Supabase tracks a real quantity; 0 means the shop says it is gone, so
+       ordering stops here instead of asking for something already sold out.
+       A CSV row or an untracked quantity (null) never sets this flag. */
+    var soldOut = product.stockCount === 0;
+
     if (product.stock) {
-      var status = el("p", "pd-status");
+      var status = el("p", "pd-status" + (soldOut ? " is-out" : ""));
       status.appendChild(el("span", "pd-dot", ""));
       status.appendChild(el("span", null, product.stock));
       info.appendChild(status);
@@ -751,25 +915,40 @@
 
     var actions = el("div", "pd-actions");
 
-    /* Order Now is the photo path; "Add to order" stays the order-list path. */
-    var order = el("button", "btn btn-accent", "Order Now");
+    /* Order on WhatsApp is the one-click path: the shop's server when FIXON has
+       deployed it, the device share sheet otherwise. "Add to order" stays the
+       order-list path. */
+    var order = el("button", "btn btn-accent", "Order on WhatsApp");
     order.type = "button";
-    if (U.isSet(window.FIXON.whatsappNumber)) {
-      order.title = "Shares this product's photo and details with FIXON on WhatsApp";
+    var serverOrder = U.orderEndpoint();
+    if (soldOut) {
+      order.disabled = true;
+      order.classList.add("is-unconfigured");
+      order.title = "FIXON lists this product as out of stock, so it cannot be ordered right now.";
+    } else if (serverOrder || U.isSet(window.FIXON.whatsappNumber)) {
+      order.title = serverOrder
+        ? "Sends this product's photo and details straight to FIXON's WhatsApp from the shop's server"
+        : "Shares this product's photo and details with FIXON on WhatsApp";
       order.addEventListener("click", function () { orderNow(product, order, actions); });
     } else {
       order.classList.add("is-unconfigured");
       order.setAttribute("aria-disabled", "true");
-      order.title = "FIXON.whatsappNumber is not set in js/config.js";
+      order.title = "Neither FIXON.orderApi.endpoint nor FIXON.whatsappNumber is set in js/config.js";
     }
     actions.appendChild(order);
 
     var add = el("button", "btn btn-primary", "Add to order");
     add.type = "button";
     add.setAttribute("data-add", product.id);
-    add.addEventListener("click", function () {
-      if (window.fixonOrder) window.fixonOrder.add(product.id);
-    });
+    if (soldOut) {
+      add.disabled = true;
+      add.classList.add("is-unconfigured");
+      add.title = "This product is out of stock, so it cannot go on the order list.";
+    } else {
+      add.addEventListener("click", function () {
+        if (window.fixonOrder) window.fixonOrder.add(product.id);
+      });
+    }
     actions.appendChild(add);
 
     var wa = el("a", "btn btn-whatsapp", "Ask on WhatsApp");
@@ -878,6 +1057,18 @@
     paintState(snapshot);
     renderOwnerNotes(snapshot);
     render();
+
+    /* ?product=<id> opens one listing straight away. This is the address the
+       WhatsApp order message carries, so the shop can open exactly what the
+       customer is pointing at. Consumed on the first ready read and never
+       again - an auto-refresh must not reopen a dialog the visitor closed.
+       An id that is not on the list is ignored: the grid shows, no dialog
+       over nothing. */
+    if (state.deeplink && (snapshot.status === "ready" || snapshot.status === "cached")) {
+      var product = C.get(state.deeplink);
+      state.deeplink = null;   /* opened, or not on the list: either way, once */
+      if (product) openDialog(product, C.rows(), { swap: false });
+    }
   }
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -898,6 +1089,10 @@
     state.model = (params.get("model") || "").trim();
     var cat = (params.get("cat") || "").trim();
     if (cat) state.category = cat;
+    /* One listing to open as soon as the list is readable. The id arrives
+       from the shop's own WhatsApp message, and C.get() only ever matches a
+       product that exists, so an edited-away link just shows the grid. */
+    state.deeplink = (params.get("product") || "").trim().slice(0, 80);
 
     var search = byId("searchInput");
     if (search && state.model) { search.value = state.model; state.query = state.model.toLowerCase(); }

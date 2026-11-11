@@ -136,6 +136,12 @@
       if (typeof window.showToast === "function") window.showToast("That item is not on the list right now - ask FIXON.", "warn");
       return;
     }
+    /* Supabase tracks a quantity; 0 means sold out and the list stops it
+       here too, not just at the product panel's buttons. */
+    if (live.stockCount === 0) {
+      if (typeof window.showToast === "function") window.showToast(live.name + " is out of stock, so it cannot go on the order list.", "warn");
+      return;
+    }
     var row = find(id);
     if (row) row.qty = clamp(row.qty + (qty || 1));
     else rows.push({
@@ -194,7 +200,7 @@
     return U.isSet(CFG.priceNote) ? CFG.priceNote : "Price on request";
   }
 
-  /* One item, in the labelled shape a single product's ORDER NOW message uses:
+  /* One item, in the labelled shape a single product's own order message uses:
      the lines this listing can actually answer, in the same order every time.
      Fitment rides on the name line so a sheet carrying a brand or model still
      says so, and an item the shop list has dropped is labelled as one. */

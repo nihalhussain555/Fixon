@@ -1,0 +1,18 @@
+# Secrets first. The endpoint reads its WhatsApp token from the environment, so
+# a stray .env in the repository would publish it to anyone who can read the
+# site's source. .env.example is the checked-in list of names and stays tracked.
+.env
+.env.*
+!.env.example
+
+# Vercel local state, including anything `vercel link` writes.
+.vercel
+
+# The endpoint has no dependencies; this is here so a future `npm install`
+# cannot start committing them.
+node_modules/
+
+# Editor and OS clutter.
+.DS_Store
+Thumbs.db
+*.swp

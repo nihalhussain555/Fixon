@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>FIXON admin - Manage products</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div id="toasts"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var A = window.fixonAdmin, el = A.el;
+      var S = window.fixonSupabase;
+
+      A.guard("products", "Manage products", function (session, body) {
+        var state = { rows: [], q: "", cat: "all", avail: "all" };
+
+        var bar = el("section", "filter-bar");
+        var search = el("input");
+        search.type = "search";
+        search.placeholder = "Search by name or description...";
+        search.setAttribute("aria-label", "Search products");
+
+        var catSel = el("select");
+        catSel.setAttribute("aria-label", "Filter by category");
+        var availSel = el("select");
+        availSel.setAttribute("aria-label", "Filter by availability");
+        [["all", "All availability"], ["active", "Active only"], ["hidden", "Hidden only"], ["out", "Out of stock"], ["instock", "In stock"]].forEach(function (o) {
+          var opt = el("option", null, o[1]); opt.value = o[0]; availSel.appendChild(opt);
+        });
+
+        var addBtn = el("a", "btn btn-primary btn-sm", "Add product");
+        addBtn.href = "add-product.html";
+
+        var count = el("span", null, "");
+        count.style.cssText = "color:var(--muted);font-size:.84rem;margin-left:auto;";
+
+        bar.appendChild(search);
+        bar.appendChild(catSel);
+        bar.appendChild(availSel);
+        bar.appendChild(addBtn);
+        bar.appendChild(count);
+        body.appendChild(bar);
+
+        var host = el("section", "panel");
+        body.appendChild(host);
+
+        search.addEventListener("input", function () { state.q = search.value.trim().toLowerCase(); paint(); });
+        catSel.addEventListener("change", function () { state.cat = catSel.value; paint(); });
+        availSel.addEventListener("change", function () { state.avail = availSel.value; paint(); });
+
+        function reload() {
+          host.textContent = "";
+          var loading = el("div", "loading-line");
+          loading.appendChild(el("div", "spinner"));
+          loading.appendChild(el("span", null, "Loading products..."));
+          host.appendChild(loading);
+          S.listProducts().then(function (rows) {
+            state.rows = rows;
+            fillCategories();
+            paint();
+          }, function (err) {
+            host.textContent = "";
+            if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+            host.appendChild(el("div", "notice error", (err && err.message) || "The products could not be loaded."));
+          });
+        }
+
+        function fillCategories() {
+          var current = String(catSel.value || "all").toLowerCase();
+          catSel.textContent = "";
+          var all = el("option", null, "All categories"); all.value = "all";
+          catSel.appendChild(all);
+          var seen = {};
+          state.rows.forEach(function (p) {
+            var label = A.categoryLabel(p.category);
+            var key = label.toLowerCase();
+            if (label && !seen[key]) {
+              seen[key] = true;
+              var opt = el("option", null, label);
+              opt.value = key;
+              catSel.appendChild(opt);
+            }
+          });
+          catSel.value = (current === "all" || seen[current]) ? current : "all";
+        }
+
+        function visible() {
+          return state.rows.filter(function (p) {
+            if (state.q) {
+              var hay = (String(p.name) + " " + String(p.description)).toLowerCase();
+              if (hay.indexOf(state.q) === -1) return false;
+            }
+            if (state.cat !== "all") {
+              if (A.categoryLabel(p.category).toLowerCase() !== state.cat) return false;
+            }
+            if (state.avail === "active" && !p.is_active) return false;
+            if (state.avail === "hidden" && p.is_active) return false;
+            if (state.avail === "out" && Number(p.stock) !== 0) return false;
+            if (state.avail === "instock" && (p.stock === null || p.stock === undefined || Number(p.stock) === 0)) return false;
+            return true;
+          });
+        }
+
+        function paint() {
+          host.textContent = "";
+          var rows = visible();
+          count.textContent = rows.length + " of " + state.rows.length + " shown";
+
+          if (!state.rows.length) {
+            var e0 = el("div", "empty");
+            e0.appendChild(el("p", null, "No products yet. The shop is showing its old catalog until you add some."));
+            var a0 = el("a", "btn btn-primary", "Add the first product");
+            a0.href = "add-product.html";
+            e0.appendChild(a0);
+            host.appendChild(e0);
+            return;
+          }
+          if (!rows.length) {
+            host.appendChild(el("div", "empty", "Nothing matches the current search and filters."));
+            return;
+          }
+
+          var wrap = el("div", "table-wrap");
+          var table = el("table", "data");
+          var thead = el("thead");
+          var hr = el("tr");
+          ["", "Name", "Category", "Price", "Stock", "Status", ""].forEach(function (t, i) {
+            var th = el("th", null, t);
+            if (i === 6) th.style.textAlign = "right";
+            hr.appendChild(th);
+          });
+          thead.appendChild(hr);
+          table.appendChild(thead);
+
+          var tbody = el("tbody");
+          rows.forEach(function (p) { tbody.appendChild(rowFor(p)); });
+          table.appendChild(tbody);
+          wrap.appendChild(table);
+          host.appendChild(wrap);
+        }
+
+        /* Every write goes through the same busy/refresh handling: a row's
+           buttons stop the moment its save starts, an error is named, and a
+           successful PATCH re-reads the list so the table always shows what
+           the database actually holds - not what the form hoped for. */
+        function withBusy(buttons, work, rowName) {
+          buttons.forEach(function (b) { b.disabled = true; });
+          work().then(function () {
+            A.toast((rowName || "The product") + " updated.", "success");
+            reload();
+          }, function (err) {
+            if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+            A.toast((err && err.message) || "The update failed.", "error");
+            buttons.forEach(function (b) { b.disabled = false; });
+          });
+        }
+
+        function rowFor(p) {
+          var tr = el("tr");
+
+          var tdPhoto = el("td");
+          if (p.image_url) {
+            var img = el("img", "thumb");
+            img.src = p.image_url; img.alt = ""; img.loading = "lazy";
+            tdPhoto.appendChild(img);
+          } else {
+            tdPhoto.appendChild(el("span", "thumb-none"));
+          }
+          tr.appendChild(tdPhoto);
+
+          var tdName = el("td");
+          tdName.appendChild(el("div", null, p.name));
+          if (p.description) {
+            var d = el("div", null, p.description);
+            d.style.cssText = "color:var(--muted);font-size:.78rem;max-width:34ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+            tdName.appendChild(d);
+          }
+          tr.appendChild(tdName);
+
+          tr.appendChild(el("td", null, A.categoryLabel(p.category) || "—"));
+
+          /* Price: inline edit, blank keeps "Price on request". */
+          var tdPrice = el("td", "price");
+          var priceForm = el("form", "inline-form");
+          var priceIn = el("input");
+          priceIn.type = "text";
+          priceIn.inputMode = "decimal";
+          priceIn.value = p.price === null || p.price === undefined ? "" : String(p.price);
+          priceIn.placeholder = "—";
+          priceIn.setAttribute("aria-label", "Price for " + p.name);
+          var priceBtn = el("button", "btn btn-quiet btn-sm", "Save");
+          priceBtn.type = "submit";
+          priceForm.appendChild(priceIn);
+          priceForm.appendChild(priceBtn);
+          priceForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+            withBusy([priceBtn], function () {
+              return S.updateProduct(p.id, formValues(p, { price: priceIn.value }));
+            }, p.name);
+          });
+          tdPrice.appendChild(priceForm);
+          tr.appendChild(tdPrice);
+
+          /* Stock: inline edit; empty means "not tracked". */
+          var tdStock = el("td");
+          var stockForm = el("form", "inline-form");
+          var stockIn = el("input");
+          stockIn.type = "number";
+          stockIn.min = "0"; stockIn.step = "1";
+          stockIn.value = p.stock === null || p.stock === undefined ? "" : String(p.stock);
+          stockIn.placeholder = "—";
+          stockIn.setAttribute("aria-label", "Stock for " + p.name);
+          var stockBtn = el("button", "btn btn-quiet btn-sm", "Save");
+          stockBtn.type = "submit";
+          stockForm.appendChild(stockIn);
+          stockForm.appendChild(stockBtn);
+          stockForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+            withBusy([stockBtn], function () {
+              return S.updateProduct(p.id, formValues(p, { stock: stockIn.value }));
+            }, p.name);
+          });
+          tdStock.appendChild(stockForm);
+          tr.appendChild(tdStock);
+
+          /* Status pill + quick activate/hide. */
+          var tdState = el("td");
+          var pill = el("span", "pill " + (p.is_active ? "on" : "off"), p.is_active ? "Active" : "Hidden");
+          tdState.appendChild(pill);
+          if (p.is_active && Number(p.stock) === 0) {
+            tdState.appendChild(el("br"));
+            tdState.appendChild(el("span", "pill out", "Out of stock"));
+          }
+          tr.appendChild(tdState);
+
+          var tdAct = el("td");
+          tdAct.style.cssText = "text-align:right;white-space:nowrap;";
+          var tog = el("button", "btn btn-ghost btn-sm", p.is_active ? "Hide" : "Show");
+          tog.type = "button";
+          tog.addEventListener("click", function () {
+            withBusy([tog], function () {
+              return S.updateProduct(p.id, formValues(p, { is_active: !p.is_active }));
+            }, p.name);
+          });
+          tdAct.appendChild(tog);
+
+          var edit = el("a", "btn btn-ghost btn-sm", "Edit");
+          edit.href = "edit-product.html?id=" + encodeURIComponent(p.id);
+          tdAct.appendChild(edit);
+
+          var del = el("button", "btn btn-danger btn-sm", "Delete");
+          del.type = "button";
+          del.addEventListener("click", function () {
+            if (!A.confirmAction('Delete "' + p.name + '"?\n\nThis removes it from the shop for good. Its uploaded photo is only deleted if no other product still uses it.')) return;
+            del.disabled = true;
+            S.deleteProduct(p.id).then(function () {
+              /* Safe cleanup, never a blind delete: the helper checks every
+                 row before removing the object and refuses external URLs. */
+              return S.deleteImageByUrl(p.image_url);
+            }).then(function () {
+              A.toast(p.name + " deleted.", "success");
+              reload();
+            }, function (err) {
+              if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+              A.toast((err && err.message) || "The delete failed.", "error");
+              del.disabled = false;
+            });
+          });
+          tdAct.appendChild(del);
+          tr.appendChild(tdAct);
+
+          return tr;
+        }
+
+        /* updateProduct PATCHes the whole row, so an inline change still has
+           to send the row's other columns unchanged - read back from the
+           database copy this row arrived as, never re-typed from the form. */
+        function formValues(p, changed) {
+          var v = {
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            category: p.category,
+            image_url: p.image_url,
+            stock: p.stock,
+            stock_note: p.stock_note,
+            featured: p.featured,
+            is_active: p.is_active
+          };
+          Object.keys(changed).forEach(function (k) { v[k] = changed[k]; });
+          return v;
+        }
+
+        reload();
+      });
+    })();
+  </script>
+</body>
+</html>

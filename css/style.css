@@ -918,6 +918,9 @@ html.js .js-loading { display: none; }
   background: var(--surface-2); font-size: .8rem; font-weight: 600; margin: 0;
 }
 .pd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+/* A tracked quantity of zero says so in the danger colour and stops the
+   order buttons (js/shop.js), so nobody asks to buy a sold-out item. */
+.pd-status.is-out .pd-dot { background: var(--danger); }
 .pd-desc { color: var(--text-soft); font-size: .98rem; line-height: 1.7; margin: 0; max-width: 62ch; }
 .pd-opt { display: grid; gap: 8px; }
 .pd-opt-label { font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }

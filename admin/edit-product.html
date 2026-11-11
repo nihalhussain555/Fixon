@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>FIXON admin - Edit product</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div id="toasts"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="admin.js"></script>
+  <script src="admin-form.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var A = window.fixonAdmin, el = A.el;
+
+      A.guard("products", "Edit product", function (session, body) {
+        /* The id in the address is only ever used as a query parameter,
+           never as HTML - a shared "edit-product.html?id=<anything>" link
+           cannot inject anything into this page. */
+        var id = new URLSearchParams(window.location.search).get("id") || "";
+
+        var host = el("section", "panel");
+        host.id = "formHost";
+        body.appendChild(host);
+
+        var loading = el("div", "loading-line");
+        loading.appendChild(el("div", "spinner"));
+        loading.appendChild(el("span", null, "Loading the product..."));
+        host.appendChild(loading);
+
+        if (!id) {
+          host.textContent = "";
+          host.appendChild(el("div", "notice error", "This page needs a product to edit. Open one from Manage products."));
+          return;
+        }
+
+        window.fixonSupabase.getProduct(id).then(function (row) {
+          host.textContent = "";
+          if (!row) {
+            host.appendChild(el("div", "notice error", "No product matches this address - it may have been deleted, or the link points at the internal id of a product hidden from visitors."));
+            var back = el("a", "btn btn-ghost", "Back to Manage products");
+            back.href = "products.html";
+            host.appendChild(back);
+            return;
+          }
+          document.title = "FIXON admin - Edit " + row.name;
+          window.fixonAdminForm.start("edit", row);
+        }, function (err) {
+          host.textContent = "";
+          if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+          host.appendChild(el("div", "notice error", (err && err.message) || "The product could not be loaded."));
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

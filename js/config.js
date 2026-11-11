@@ -83,8 +83,8 @@
         "Hi {shop}, I have a question about {topic}.\n\n{message}\n\nDevice: {device}\nBest time to reply: {when}\n\n- {customer} ({contact})",
 
       /* The order tray (js/order.js) builds one message from the items the
-         visitor added, in the same labelled shape ORDER NOW uses for a single
-         product: {items} arrives as one "Product Name / Price / Category /
+         visitor added, in the same labelled shape the single-product order
+         button uses: {items} arrives as one "Product Name / Price / Category /
          Quantity" block per item, separated by a blank line. {lead} is
          "this product." or "these products." so a one-item list still reads
          correctly. {priced} is the total line and {extras} whatever the
@@ -96,7 +96,7 @@
       order:
         "Hello! I am interested in ordering {lead}\n\n{items}\n\n{priced}\n{extras}Please confirm availability and delivery details.{photo}",
 
-      /* ORDER NOW (js/shop.js): one product sent straight from its details
+      /* Order on WhatsApp (js/shop.js): one product sent straight from its details
          panel. {details} arrives as the labelled lines that this listing can
          actually answer - a product with no category cell simply has no
          category line - and {photo} is either empty, because the picture went
@@ -184,8 +184,41 @@
     ],
 
     /* ------------------------------------------------------------------ *
+     * 9b. SUPABASE - the product database and the admin dashboard
+     * ----------------------------------------------------------------
+     * Once FIXON.supabase below is filled in, the storefront's products and
+     * the /admin dashboard's edits live in the Supabase project instead of
+     * the CSV sheet: the dashboard writes, this reads, and a newly added
+     * product shows on the site without any deploy. js/supabase.js does the
+     * talking; supabase/SETUP.sql is the one-pass database setup.
+     *
+     * url  the project's API address, e.g. "https://abcd1234.supabase.co".
+     *      Supabase dashboard -> Project Settings -> API -> Project URL.
+     * key  the PUBLIC "anon" key from the same screen. It is published with
+     *      the site on purpose - the database itself is protected by Row
+     *      Level Security policies (see SETUP.sql), which only ever let
+     *      visitors read active products and only let listed admins write.
+     *      NEVER paste the "service_role" key or the database password
+     *      here: anything in this file is public source code.
+     *
+     * Left as SET_ME_* (or set wrong), the site falls back to the CSV
+     * catalog below and the dashboard shows a clear configuration message -
+     * the shop never goes blank because of a missing setting.
+     * ---------------------------------------------------------------- */
+    supabase: {
+      url: "SET_ME_SUPABASE_URL",
+      key: "SET_ME_SUPABASE_ANON_KEY"
+    },
+
+    /* ------------------------------------------------------------------ *
      * 10. CATALOG SOURCE - the shop's product list
      * ----------------------------------------------------------------
+     * With supabase configured above, this section only matters as the
+     * fallback: the CSV is read when Supabase is unconfigured or
+     * unreachable, so the shop keeps selling instead of showing an error.
+     * With Supabase NOT configured, this remains the product source exactly
+     * as before.
+     *
      * Products and their prices live in a spreadsheet, NOT in code, so the
      * owner can add, edit, activate or hide an item without a developer.
      *
@@ -247,6 +280,31 @@
       imageFolder: "images/products"
     },
 
+    /* ------------------------------------------------------------------ *
+     * 11. ORDER ENDPOINT - server-side WhatsApp Cloud API delivery
+     * ----------------------------------------------------------------
+     * api/whatsapp-order.js is a Vercel serverless function that re-reads the
+     * product from the shop's own sheet, downloads its photo, uploads it to the
+     * WhatsApp Cloud API and posts it to the shop's number with the order
+     * caption. Because the delivery happens on a server, the visitor does not
+     * have to pick a contact or keep the photo safe in their gallery.
+     *
+     * endpoint   The deployed function's address, e.g.
+     *            "https://fixon.vercel.app/api/whatsapp-order". Leave it "" (or
+     *            a SET_ME_* value) and the button behaves exactly as it does
+     *            today: it shares the verified photo through the device, and
+     *            falls back to a WhatsApp link. Nothing is silently downgraded -
+     *            the button says which route it took.
+     *
+     * There is deliberately nowhere in this file for an access token, a phone
+     * number ID or an app secret. Those live in the hosting provider's
+     * environment variables and never reach a browser; anything written here is
+     * published to every visitor with the rest of the source. See
+     * WHATSAPP-ORDERS.md. */
+    orderApi: {
+      endpoint: ""
+    },
+
     /* Free-text window, so no implied promise that FIXON is standing by at a
        certain hour. The shop replies when it replies. */
     callbackTimes: ["Any time", "Before noon", "Afternoon", "Evening"],
@@ -304,8 +362,40 @@
     return "https://wa.me/" + FIXON.whatsappNumber + "?text=" + encodeURIComponent(message(messageKey, tokens));
   }
 
+  /* The address that opens one listing on the shop page (js/shop.js reads
+     ?product=). Two ways to know it: share.url when the owner has set it,
+     otherwise the address the visitor is actually reading this product on -
+     which is the same page, so it is never a guess. Over plain http(s) only,
+     so a file:// preview or a javascript: oddity produces no link at all
+     rather than a dead one. */
+  function siteBase() {
+    if (isSet(FIXON.share.url)) return String(FIXON.share.url).replace(/\/+$/, "");
+    var here = window.location && window.location.origin;
+    if (typeof here === "string" && /^https?:\/\/./i.test(here) && here !== "null") return here.replace(/\/+$/, "");
+    return null;
+  }
+
+  function productPageUrl(id) {
+    var base = siteBase();
+    if (!base || !id) return null;
+    return base + "/shop.html?product=" + encodeURIComponent(id);
+  }
+
   function telUrl() {
     return isSet(FIXON.phoneDial) ? "tel:+" + FIXON.phoneDial.replace(/[^\d]/g, "") : null;
+  }
+
+  /* The order endpoint, or null. An empty or SET_ME_* value is not a broken
+     setting but a choice: the page keeps using the device share and the wa.me
+     link. Only a real http(s) address (or a same-site path) is ever passed to
+     fetch, so a half-typed value in config.js cannot make the shop's own page
+     post an order somewhere unexpected. */
+  function orderEndpoint() {
+    var raw = FIXON.orderApi && FIXON.orderApi.endpoint;
+    if (!isSet(raw)) return null;
+    var text = String(raw).trim();
+    if (/^https?:\/\//i.test(text) || text.charAt(0) === "/") return text.replace(/\/+$/, "");
+    return null;
   }
 
   function mapsSearchUrl() {
@@ -382,6 +472,9 @@
     whatsappUrl: whatsappUrl,
     message: message,
     telUrl: telUrl,
+    orderEndpoint: orderEndpoint,
+    productPageUrl: productPageUrl,
+    siteBase: siteBase,
     mapsSearchUrl: mapsSearchUrl,
     mapsEmbedUrl: mapsEmbedUrl,
     addressLines: addressLines,

@@ -1,0 +1,14 @@
+{
+  "name": "fixon-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "FIXON static storefront, plus the serverless endpoint that hands a product photo and its order details to the shop's WhatsApp number.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test:orders": "node tools/test-order-endpoint.mjs",
+    "check": "node --check api/whatsapp-order.js && node --check tools/test-order-endpoint.mjs"
+  }
+}

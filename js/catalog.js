@@ -24,6 +24,14 @@
   var CFG = window.FIXON;
   var U = window.fixonUtils;
 
+  /* Supabase is the product source when js/config.js has it configured; the
+     CSV below stays the fallback for an unconfigured or unreachable project,
+     so the shop never blanks because of one missing setting. js/supabase.js
+     must load before this file (script order in the pages). */
+  function supabaseOn() {
+    return !!(window.fixonSupabase && window.fixonSupabase.configured());
+  }
+
   var CACHE_KEY = "fixon_catalog_v1";
   var SERVICE_CACHE_KEY = "fixon_services_v1";
   var REQUEST_TIMEOUT = 12000;
@@ -139,6 +147,76 @@
     var list = CFG.productCategories;
     for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i].label;
     return null;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Supabase row -> product
+   * --------------------------------------------------------------------------
+   * The dashboard's row becomes exactly the shape every renderer already
+   * consumes, so the storefront code did not change when the data moved.
+   * Values pass through the same guards the sheet uses: a hand-typed or
+   * compromised database cell is treated as untrusted input, never as HTML
+   * or as a script-capable URL. Ids follow the CSV rule (a slug of the
+   * name), so order trays and server-side order checks keep working across
+   * both sources; the database uuid is not the browsing id.
+   * ------------------------------------------------------------------ */
+  function supabaseStock(product, row) {
+    if (row.stock_note) return clip(row.stock_note, 60);
+    if (row.stock === null || row.stock === undefined || row.stock === "") return "";
+    var n = Number(row.stock);
+    if (!isFinite(n) || n < 0) return "";
+    product.stockCount = n;
+    return n > 0 ? "In stock (" + n + ")" : "Out of stock";
+  }
+
+  function toSupabaseProduct(row, used) {
+    var name = clip(row.name, 120);
+    if (!name) return null;
+    var priceNumber = row.price === null || row.price === undefined || row.price === ""
+      ? null : priceValue(row.price);
+    var image = resolveImage(row.image_url);
+    var categoryId = categoryIdFor(row.category);
+    var p = {
+      name: name,
+      description: clip(row.description, 800),
+      /* The DB stores a number; the offer check re-reads it as text the same
+         way a sheet cell would, keeping one price pipeline for both sources. */
+      priceText: priceNumber === null ? "" : String(row.price),
+      price: priceNumber === null ? null : U.formatPrice(priceNumber),
+      priceNumber: priceNumber,
+      wasPrice: null,
+      wasLabel: "",
+      discount: null,
+      category: categoryId,
+      categoryLabel: categoryLabel(categoryId) || clip(row.category, 40),
+      categoryRaw: clip(row.category, 40),
+      image: image,
+      photo: image || categoryPhoto(categoryId),
+      gallery: image ? [image] : [categoryPhoto(categoryId)],
+      colors: [],
+      sizes: [],
+      features: [],
+      specs: [],
+      stock: supabaseStock(p, row),
+      brand: "",
+      model: "",
+      featured: !!row.featured,
+      link: null,
+      /* Not a browsing id - the edit page's address and the dashboard's
+         row actions use this; the order payload keeps using p.id. */
+      dbId: String(row.id || "")
+    };
+    p.id = rowKey(name, 0, used);
+    return p;
+  }
+
+  function buildFromSupabase(rows) {
+    var products = [], used = {};
+    for (var i = 0; i < rows.length; i++) {
+      var p = toSupabaseProduct(rows[i], used);
+      if (p) products.push(p);
+    }
+    return products;
   }
 
   /* ------------------------------------------------------------------ *
@@ -597,19 +675,47 @@
     return snapshot();
   }
 
-  function load() {
-    if (inflight) return inflight;
+  /* Supabase first: one anon read, RLS-filtered to active rows. Any answer
+     short of a usable list - network down, key wrong, project unreachable -
+     falls through to the CSV, and the CSV's own failure then follows the
+     usual cached/last-good path. A configured project that returns zero
+     active products is treated like a source failure rather than shown as
+     an empty shop, because the previous source may still have real rows;
+     the dashboard, not this read, is where products get activated. */
+  function loadViaSupabase() {
+    return window.fixonSupabase.activeProducts().then(function (rows) {
+      var products = buildFromSupabase(rows);
+      if (!products.length) throw new Error("Supabase has no active products.");
+      state.rows = products;
+      state.notes = [];
+      state.source = { kind: "supabase", url: String(CFG.supabase.url).replace(/\/+$/, "") };
+      state.fetchedAt = Date.now();
+      state.fromCache = false;
+      state.error = null;
+      state.status = "ready";
+      saveCache(CACHE_KEY, { ts: state.fetchedAt, rows: products, notes: [], source: state.source });
+      inflight = null;
+      notify();
+      return snapshot();
+    }, function (error) {
+      return loadCsvChain(error && error.message ? error.message : "Supabase could not be reached.");
+    });
+  }
 
+  /* The CSV candidate chain, shared by the plain-CSV boot and the Supabase
+     fallback. leadingError keeps the Supabase complaint in the message when
+     both sources end up failing. */
+  function loadCsvChain(leadingError) {
     var list = candidates();
     if (!list.length) {
       state.status = "unset";
-      state.error = null;
+      state.error = leadingError || null;
       notify();
       return Promise.resolve(snapshot());
     }
 
     var usable = [];
-    var blocked = "";
+    var blocked = leadingError || "";
     list.forEach(function (entry) {
       var why = sourceProblem(entry.url);
       if (why) { if (!blocked) blocked = why; } else usable.push(entry);
@@ -620,7 +726,7 @@
     if (!state.rows.length) state.status = "loading";
     notify();
 
-    inflight = loadFrom(usable, 0, null).then(function (built) {
+    return loadFrom(usable, 0, blocked || null).then(function (built) {
       state.rows = built.products;
       state.notes = built.notes;
       state.source = built.source;
@@ -632,10 +738,22 @@
       inflight = null;
       notify();
       return snapshot();
-    }).catch(function (error) {
+    }, function (error) {
       return applyFailure(error.message);
     });
+  }
 
+  function load() {
+    if (inflight) return inflight;
+
+    if (supabaseOn()) {
+      if (!state.rows.length) state.status = "loading";
+      notify();
+      inflight = Promise.resolve().then(loadViaSupabase);
+      return inflight;
+    }
+
+    inflight = loadCsvChain(null);
     return inflight;
   }
 

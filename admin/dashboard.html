@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>FIXON admin - Dashboard</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div id="toasts"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var A = window.fixonAdmin, el = A.el;
+
+      A.guard("dashboard", "Dashboard", function (session, body) {
+        var loading = el("div", "loading-line");
+        loading.appendChild(el("div", "spinner"));
+        loading.appendChild(el("span", null, "Loading the shop's numbers..."));
+        body.appendChild(loading);
+
+        window.fixonSupabase.listProducts().then(function (rows) {
+          body.textContent = "";
+          paint(rows, body);
+        }, function (err) {
+          body.textContent = "";
+          if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+          body.appendChild(el("div", "notice error", err && err.message ? err.message : "The products could not be loaded."));
+        });
+      });
+
+      function paint(rows, body) {
+        var total = rows.length;
+        var active = rows.filter(function (p) { return p.is_active; }).length;
+        var soldOut = rows.filter(function (p) { return p.is_active && Number(p.stock) === 0; }).length;
+        var categories = {};
+        rows.forEach(function (p) {
+          var key = String(p.category || "").trim().toLowerCase();
+          if (key) categories[key] = true;
+        });
+        var weekAgo = Date.now() - 7 * 86400000;
+        var recent = rows.filter(function (p) { return new Date(p.created_at).getTime() >= weekAgo; });
+        var fiveNewest = rows.slice(0, 5);
+
+        if (!total) {
+          var empty = el("div", "empty");
+          empty.appendChild(el("p", null, "No products are in the database yet."));
+          var go = el("a", "btn btn-primary", "Add the first product");
+          go.href = "add-product.html";
+          empty.appendChild(go);
+          body.appendChild(empty);
+          return;
+        }
+
+        var grid = el("section", "stat-grid");
+        [
+          { num: total, lbl: "Total products", cls: "" },
+          { num: active, lbl: "Active on the shop", cls: "accent" },
+          { num: soldOut, lbl: "Out of stock", cls: soldOut ? "warn" : "" },
+          { num: Object.keys(categories).length, lbl: "Categories used", cls: "" },
+          { num: recent.length, lbl: "Added in last 7 days", cls: "" }
+        ].forEach(function (card) {
+          var c = el("div", "stat-card " + card.cls);
+          c.appendChild(el("div", "num", String(card.num)));
+          c.appendChild(el("div", "lbl", card.lbl));
+          grid.appendChild(c);
+        });
+        body.appendChild(grid);
+
+        /* Recently added table */
+        var panel = el("section", "panel");
+        var head = el("div");
+        head.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;";
+        head.appendChild(el("h2", null, "Recently added"));
+        var all = el("a", "btn btn-ghost btn-sm", "Manage all products");
+        all.href = "products.html";
+        head.appendChild(all);
+        panel.appendChild(head);
+
+        var wrap = el("div", "table-wrap");
+        var table = el("table", "data");
+        var thead = el("thead");
+        var hr = el("tr");
+        ["Photo", "Name", "Category", "Price", "Stock", "Status", "Added"].forEach(function (t) {
+          hr.appendChild(el("th", null, t));
+        });
+        thead.appendChild(hr);
+        table.appendChild(thead);
+
+        var tbody = el("tbody");
+        fiveNewest.forEach(function (p) { tbody.appendChild(rowFor(p)); });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+        panel.appendChild(wrap);
+        body.appendChild(panel);
+
+        var hint = el("p", null, "Counts update as soon as this page loads - the shop's own visitors see the same products within moments of any change made here.");
+        hint.style.color = "var(--muted)";
+        hint.style.fontSize = ".82rem";
+        body.appendChild(hint);
+      }
+
+      function rowFor(p) {
+        var tr = el("tr");
+        var tdPhoto = el("td");
+        if (p.image_url) {
+          var img = el("img", "thumb");
+          img.src = p.image_url;
+          img.alt = "";
+          img.loading = "lazy";
+          tdPhoto.appendChild(img);
+        } else {
+          tdPhoto.appendChild(el("span", "thumb-none"));
+        }
+        tr.appendChild(tdPhoto);
+        tr.appendChild(el("td", null, p.name));
+        tr.appendChild(el("td", null, window.fixonAdmin.categoryLabel(p.category) || "—"));
+        tr.appendChild(el("td", "price", window.fixonAdmin.money(p.price)));
+        tr.appendChild(el("td", null, p.stock === null || p.stock === undefined ? "—" : String(p.stock)));
+        var tdState = el("td");
+        tdState.appendChild(el("span", "pill " + (p.is_active ? "on" : "off"), p.is_active ? "Active" : "Hidden"));
+        tr.appendChild(tdState);
+        tr.appendChild(el("td", null, window.fixonAdmin.fmtDate(p.created_at)));
+        return tr;
+      }
+    })();
+  </script>
+</body>
+</html>

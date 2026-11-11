@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>FIXON admin sign in</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <form class="auth-card" id="loginForm" novalidate>
+      <div class="brand">FIXON<small>Admin dashboard</small></div>
+      <h2>Sign in</h2>
+
+      <div id="loginNotice"></div>
+
+      <div class="field" id="emailField">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="username" required>
+        <span class="err">Enter the email address for this admin account.</span>
+      </div>
+
+      <div class="field" id="passwordField">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+        <span class="err">Enter your password.</span>
+      </div>
+
+      <button class="btn btn-primary btn-block" type="submit" id="loginBtn">Sign in</button>
+
+      <div class="auth-links">
+        <a href="#" id="forgotLink">Forgot password?</a>
+        <a href="../">Back to the shop</a>
+      </div>
+
+      <div class="field" id="resetField" hidden>
+        <label for="resetEmail">Reset email</label>
+        <input type="email" id="resetEmail" autocomplete="username">
+        <span class="hint">A reset link is emailed to admin addresses only. This form never says whether an address exists.</span>
+      </div>
+      <button class="btn btn-primary btn-block" type="button" id="resetBtn" hidden>Send reset link</button>
+    </form>
+  </div>
+
+  <div id="toasts"></div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var A = window.fixonAdmin;
+      A.initTheme();
+
+      var S = window.fixonSupabase;
+      var form = document.getElementById("loginForm");
+      var notice = document.getElementById("loginNotice");
+      var email = document.getElementById("email");
+      var password = document.getElementById("password");
+      var loginBtn = document.getElementById("loginBtn");
+      var resetField = document.getElementById("resetField");
+      var resetEmail = document.getElementById("resetEmail");
+      var resetBtn = document.getElementById("resetBtn");
+      var forgotLink = document.getElementById("forgotLink");
+
+      if (!S.configured()) {
+        notice.appendChild(A.el("div", "notice warn",
+          "Supabase is not configured (js/config.js -> FIXON.supabase), so there is nothing to sign in to yet."));
+        loginBtn.disabled = true;
+        forgotLink.style.display = "none";
+        return;
+      }
+
+      function setNotice(cls, text) {
+        notice.textContent = "";
+        if (text) notice.appendChild(A.el("div", "notice " + cls, text));
+      }
+
+      function goAfterLogin() {
+        var next = new URLSearchParams(window.location.search).get("next") || "";
+        /* Only ever navigate inside /admin - an open redirect param is a
+           classic trick, and there is no reason to honour it here. */
+        var safe = /^\/?(admin\/)?[\w.-]+\.html(\?[\w=&%-]*)?$/.test(next.replace(/^https?:\/\/[^/]+/i, "")) &&
+          !/^(https?:|\/\/)/i.test(next) ? next : "dashboard.html";
+        window.location.replace(safe);
+      }
+
+      /* A password-reset link can land here carrying tokens in the URL hash. */
+      S.captureRecovery().then(function (recovered) {
+        if (recovered) {
+          setNotice("ok", "Password updated. Sign in with the new password.");
+          return;
+        }
+        if (S.currentSession) {
+          return S.currentSession().then(function (existing) {
+            if (existing) goAfterLogin();
+          });
+        }
+      });
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        setNotice("", "");
+        var ok = true;
+        [["emailField", email], ["passwordField", password]].forEach(function (pair) {
+          var field = document.getElementById(pair[0]);
+          var bad = !pair[1].value.trim();
+          field.classList.toggle("bad", bad);
+          if (bad) ok = false;
+        });
+        if (!ok) return;
+
+        loginBtn.disabled = true;
+        loginBtn.textContent = "Signing in...";
+        S.signIn(email.value, password.value).then(function () {
+          goAfterLogin();
+        }, function (err) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = "Sign in";
+          setNotice("error", err && err.message ? err.message : "Sign-in failed.");
+          if (err && err.code === "not_admin") {
+            /* The one case worth extra words: the password was right. */
+            setNotice("error", "That account signed in correctly but is not on the FIXON admin list, so the dashboard stays closed. Ask the project owner to add it (supabase/SETUP.sql, section 6).");
+          }
+        });
+      });
+
+      forgotLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        var showing = !resetField.hidden;
+        resetField.hidden = showing;
+        resetBtn.hidden = showing;
+        if (!showing) {
+          resetEmail.value = email.value.trim();
+          resetEmail.focus();
+        }
+      });
+
+      resetBtn.addEventListener("click", function () {
+        var value = resetEmail.value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+          setNotice("error", "Enter the email address for this admin account first.");
+          return;
+        }
+        resetBtn.disabled = true;
+        resetBtn.textContent = "Sending...";
+        var here = window.location.origin + window.location.pathname;
+        S.resetPassword(value, here).then(function () {
+          setNotice("ok", "If that address belongs to an admin account, a reset link is on its way. Check the inbox and the spam folder.");
+          resetField.hidden = true;
+          resetBtn.hidden = true;
+        }, function (err) {
+          setNotice("error", (err && err.message) || "The reset request could not be sent.");
+        }).finally(function () {
+          resetBtn.disabled = false;
+          resetBtn.textContent = "Send reset link";
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -57,6 +57,11 @@ data/catalog.csv      the shop's product list (currently labelled EXAMPLE rows -
 images/               covers, accessories, brands, banners
 images/products/      drop a photo here and type only its file name in the sheet
 _removed-repair/      archived repair/services pages (not linked anywhere)
+api/whatsapp-order.js optional server-side WhatsApp delivery (WHATSAPP-ORDERS.md)
+package.json          declares ESM + Node 20 for that function; no dependencies
+vercel.json           keeps URLs exact and sizes the function
+.env.example          the variable names that function reads - never the values
+tools/                the order-endpoint test and a localhost runner that mounts it
 ```
 
 ## The one file the owner edits
@@ -177,6 +182,18 @@ After deploying, check three things: the shop page shows your products,
 `Add to order` → `Send order on WhatsApp` opens WhatsApp with the list typed
 out - with the products' own photos attached on a phone that allows it - and the
 phone/WhatsApp links dial the shop.
+
+## Server-side WhatsApp orders
+
+`Order on WhatsApp` in the product view shares the photo through the visitor's
+own device until you switch on **see WHATSAPP-ORDERS.md**: a serverless function
+(`api/whatsapp-order.js`) that re-reads the product from your sheet, uploads its
+photo to the WhatsApp Cloud API and posts image + caption to the number you
+configure, so the visitor selects no contact and attaches nothing. It needs a
+Meta WhatsApp Business account and four environment variables; nothing about it
+touches the frontend beyond one address in `js/config.js` → `orderApi`, and no
+credential ever reaches a browser. Set that address back to `""` and the button
+returns to the device route.
 
 ## Widths the layout is held to
 

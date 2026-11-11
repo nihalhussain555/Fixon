@@ -506,7 +506,8 @@
 
   /* ------------------------------------------------------------------ *
    * Photo sharing - the only way a browser can put a real picture into
-   * WhatsApp, and the reason ORDER NOW (js/shop.js) and the order list
+   * WhatsApp, and the reason the product's own order button (js/shop.js) and
+   * the order list
    * (js/order.js) both come through here rather than each keeping a copy.
    * ------------------------------------------------------------------ *
    * A wa.me link carries text and addresses; it can never carry an image. The
