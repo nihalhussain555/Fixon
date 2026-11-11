@@ -208,8 +208,8 @@
      * the shop never goes blank because of a missing setting.
      * ---------------------------------------------------------------- */
     supabase: {
-      url: "SET_ME_SUPABASE_URL",
-      key: "SET_ME_SUPABASE_ANON_KEY"
+      url: "https://vtlvgqrdnlnngtxgkthj.supabase.co/",
+      key: "sb_publishable_qKBTLKMRMtTcaxcC8co5Kg_ShiB_LG-"
     },
 
     /* ------------------------------------------------------------------ *
