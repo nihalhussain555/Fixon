@@ -66,9 +66,10 @@
     img.loading = "lazy";
     img.decoding = "async";
     img.alt = p.image ? p.name : p.name + " - category illustration";
-    /* If the sheet link 404s, swap to the category picture once. Without a
-       sheet image there is nothing better to fall back to. */
-    if (p.image) img.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
+    /* If the product's own photo will not load, swap once to this item's
+       category illustration. Falling back to a generic shelf picture would
+       show the customer something from another product line instead. */
+    if (p.image) img.setAttribute("data-fallback", p.fallbackPhoto || U.photoSrc("accessories", "other"));
     visual.appendChild(img);
 
     /* Offer badges come straight off the shop's own sheet columns and only

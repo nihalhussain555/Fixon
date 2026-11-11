@@ -211,8 +211,8 @@
     var p = {
       name: name,
       description: clip(row.description, 800),
-      /* The DB stores a number; the card re-reads it as text the same way a
-         sheet cell used to, keeping one price pipeline. */
+      /* The database column is numeric text, so it goes through the same
+         price parser the card shows - one pipeline, one shape of mistake. */
       priceText: priceNumber === null ? "" : String(row.price),
       price: priceNumber === null ? null : U.formatPrice(priceNumber),
       priceNumber: priceNumber,
@@ -224,6 +224,10 @@
       categoryRaw: clip(row.category, 40),
       image: image,
       photo: image || categoryPhoto(categoryId),
+      /* What a renderer swaps to when the product's own photo will not load:
+         this item's category illustration, never a picture from another
+         category, so a missing photo cannot read as a different product. */
+      fallbackPhoto: categoryPhoto(categoryId),
       gallery: image ? [image] : [categoryPhoto(categoryId)],
       colors: [],
       sizes: [],

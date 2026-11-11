@@ -6,13 +6,14 @@
    so a bypassed browser still cannot store a negative price or a 10-page
    description.
 
-   Image rule, stated honestly: pressing Save never uploads in the
-   background. The admin presses "Upload image" and the file goes to the
-   Supabase bucket and becomes the row's image URL. An unpasted external URL
-   is allowed too - the shop's existing photos live on its own domain, and
-   the storefront resolves relative paths - but an uploaded file MUST go
-   through the upload button, because a blob: preview address stored in the
-   database would be invisible to every visitor but this browser tab.
+   Image rule, the one the shop asked for: the photo chosen in this form is
+   the photo the site shows. Pressing Save uploads whatever is still only
+   chosen, so there is no second step to forget, and the saved address is then
+   loaded the way a visitor would - if Supabase cannot serve it, the dashboard
+   says which setting to fix instead of the shop quietly showing a different
+   picture. An external URL is allowed too, and a blob: preview address is
+   rejected on save, because a blob: in the database would be invisible to
+   every visitor but this browser tab.
    -------------------------------------------------------------------------- */
 (function () {
   "use strict";
@@ -152,11 +153,13 @@
     actions.appendChild(imgMsg);
     imgBlock.appendChild(actions);
     imgBlock.appendChild(fileIn);
-    imgBlock.appendChild(el("span", "hint", "JPEG, PNG or WebP up to 5 MB. Uploading replaces the address above - pressing Save without uploading stores whatever address is in the box."));
+    imgBlock.appendChild(el("span", "hint", "JPEG, PNG or WebP up to 5 MB. A chosen file uploads with the Save press, so the photo you pick is the photo the shop shows. Upload image does it immediately instead, and typing an address in the box above replaces it."));
     grid.appendChild(imgBlock);
 
-    /* previewBlob kept so an abandoned choice releases its object URL. */
+    /* previewBlob kept so an abandoned choice releases its object URL.
+       pendingFile is the file chosen but not uploaded yet - Save uploads it. */
     var previewBlob = null;
+    var pendingFile = null;
     function showPreview(src) {
       if (preview) preview.remove();
       drop.textContent = "";
@@ -170,49 +173,84 @@
     fileIn.addEventListener("change", function () {
       var file = fileIn.files && fileIn.files[0];
       markError("image_url", "");
-      if (!file) { showPreview(imageIn.value.trim()); imgMsg.textContent = ""; return; }
+      if (!file) { pendingFile = null; showPreview(imageIn.value.trim()); imgMsg.textContent = ""; return; }
       if (["image/jpeg", "image/png", "image/webp"].indexOf(file.type) === -1) {
         imgMsg.textContent = "That file is a " + (file.type || "unknown") + " - choose a JPEG, PNG or WebP.";
+        pendingFile = null;
         showPreview(imageIn.value.trim());
         fileIn.value = "";
         return;
       }
       if (file.size > S.maxImageBytes) {
         imgMsg.textContent = "That image is " + (file.size / 1048576).toFixed(1) + " MB - the limit is 5 MB.";
+        pendingFile = null;
         fileIn.value = "";
         return;
       }
+      /* Chosen, not uploaded: Save picks this up and uploads it first, so the
+         photo can never be stranded in the form. */
+      pendingFile = file;
       if (previewBlob) URL.revokeObjectURL(previewBlob);
       previewBlob = URL.createObjectURL(file);
       showPreview(previewBlob);
-      imgMsg.textContent = "Ready to upload: " + file.name + " (" + Math.round(file.size / 1024) + " KB).";
+      imgMsg.textContent = "Chosen: " + file.name + " (" + Math.round(file.size / 1024) +
+        " KB). It uploads when you press " + (mode === "add" ? "Create product" : "Save changes") +
+        ", or press Upload image to do it now.";
     });
 
+    /* One upload path, used by the button and by Save. Without a pending file
+       it resolves the address already in the box, so callers always get the
+       value the row is about to hold. */
+    function uploadPending() {
+      var file = pendingFile;
+      if (!file) return Promise.resolve(String(imageIn.value || "").trim());
+      setUploadBusy(true);
+      return S.uploadImage(file).then(function (url) {
+        pendingFile = null;
+        imageIn.value = url;
+        dirty = true;
+        if (previewBlob) { URL.revokeObjectURL(previewBlob); previewBlob = null; }
+        showPreview(url);           /* the real stored address, previewed */
+        fileIn.value = "";
+        return readableCheck(url).then(function (warning) {
+          imgMsg.textContent = warning || "Uploaded to Supabase - this is the photo the shop will show.";
+          if (warning) A.toast(warning, "warn");
+          return url;
+        });
+      }, function (err) {
+        imgMsg.textContent = (err && err.message) || "The upload failed.";
+        throw err;
+      }).finally(function () { setUploadBusy(false); });
+    }
+
+    function setUploadBusy(on) {
+      upBtn.disabled = on;
+      pickBtn.disabled = on;
+      upBtn.textContent = on ? "Uploading..." : "Upload image";
+    }
+
+    /* The address is loaded the way a visitor loads it. Only our own bucket is
+       probed: a private bucket or a renamed one stores a perfectly-shaped
+       address that renders nowhere, and that is a setting to name, not a
+       product to blame. */
+    function readableCheck(url) {
+      if (!url || !S.isStorageUrl(url)) return Promise.resolve(null);
+      return S.imageReadable(url).then(function (ok) {
+        if (ok) return null;
+        return "Supabase accepted the file but is not serving it back yet, so the shop " +
+          "cannot show this photo. Open Storage -> " + "product-images -> Settings and turn " +
+          "Public on (or run supabase/SETUP.sql section 5), then reload the product.";
+      }, function () { return null; });
+    }
+
     upBtn.addEventListener("click", function () {
-      var file = fileIn.files && fileIn.files[0];
-      if (!file) {
+      if (!pendingFile) {
         /* Nothing chosen: if the preview is still the stored photo, say so
            instead of failing mysteriously. */
         imgMsg.textContent = fileIn.value ? "Choose a file first." : "No new file chosen - the saved image stays as it is.";
         return;
       }
-      upBtn.disabled = true;
-      pickBtn.disabled = true;
-      upBtn.textContent = "Uploading...";
-      S.uploadImage(file).then(function (url) {
-        imageIn.value = url;
-        dirty = true;
-        if (previewBlob) { URL.revokeObjectURL(previewBlob); previewBlob = null; }
-        showPreview(url);           /* the real stored address, previewed */
-        imgMsg.textContent = "Uploaded to Supabase.";
-        fileIn.value = "";
-      }, function (err) {
-        imgMsg.textContent = (err && err.message) || "The upload failed.";
-      }).finally(function () {
-        upBtn.disabled = false;
-        pickBtn.disabled = false;
-        upBtn.textContent = "Upload image";
-      });
+      uploadPending();
     });
 
     showPreview(originalImage || imageIn.value.trim());
@@ -277,27 +315,35 @@
       }
       saveBtn.disabled = true;
       cancel.style.pointerEvents = "none";
-      statusLine.textContent = "Saving...";
+      statusLine.textContent = pendingFile ? "Uploading photo..." : "Saving...";
 
-      var work = mode === "add"
-        ? S.createProduct(values)
-        : S.updateProduct(existing.id, values).then(function (row) {
-            /* Replaced image? Clean the old bucket object, but only after the
-               new row is safely saved, and only if nothing else references
-               it (the helper checks). */
-            if (originalImage && values.image_url !== originalImage) {
-              return S.deleteImageByUrl(originalImage).then(function (removed) {
-                return { row: row, imageRemoved: removed };
-              });
-            }
-            return { row: row, imageRemoved: false };
-          });
+      /* The chosen file goes up first and its address becomes the row's, so a
+         photo picked in this form cannot be left behind by a Save press. A
+         failed upload stops the save: a product created without the picture
+         the shop just chose is the bug this flow is meant to remove. */
+      var step = uploadPending().then(function (url) {
+        values.image_url = url;
+        statusLine.textContent = "Saving...";
+        return mode === "add"
+          ? S.createProduct(values)
+          : S.updateProduct(existing.id, values).then(function (row) {
+              /* Replaced image? Clean the old bucket object, but only after the
+                 new row is safely saved, and only if nothing else references
+                 it (the helper checks). */
+              if (originalImage && values.image_url !== originalImage) {
+                return S.deleteImageByUrl(originalImage).then(function (removed) {
+                  return { row: row, imageRemoved: removed };
+                });
+              }
+              return { row: row, imageRemoved: false };
+            });
+      });
 
-      work.then(function (result) {
+      step.then(function (result) {
         dirty = false;
         if (mode === "add") {
           statusLine.textContent = "Created.";
-          A.toast(values.name + " is live on the shop.", "success");
+          A.toast(values.name + (values.is_active ? " is live on the shop." : " is saved as a draft - tick Active to show it."), "success");
           setTimeout(function () { window.location.href = "products.html"; }, 700);
         } else {
           var extra = result && result.imageRemoved ? " The replaced photo was deleted from storage."

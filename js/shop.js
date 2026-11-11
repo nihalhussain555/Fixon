@@ -387,7 +387,7 @@
     if (opener && typeof opener.focus === "function") opener.focus();
   }
 
-  function openZoom(box, opener, src, alt, canFallback) {
+  function openZoom(box, opener, src, alt, fallback) {
     dropZoom(box);
 
     var layer = el("div", "pd-zoom");
@@ -400,7 +400,7 @@
     img.src = src;
     img.alt = alt;
     img.decoding = "async";
-    if (canFallback) img.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
+    if (fallback) img.setAttribute("data-fallback", fallback);
     layer.appendChild(img);
 
     var bar = el("div", "pd-zoom-bar");
@@ -524,7 +524,7 @@
       stage.style.setProperty("--pd-ratio", String(Math.min(1.5, Math.max(0.7, w / h))));
     });
     if (product.image) {
-      main.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
+      main.setAttribute("data-fallback", product.fallbackPhoto || U.photoSrc("accessories", "other"));
       /* js/app.js quietly swaps in the stand-in when the file is missing, so
          say so here rather than letting a borrowed picture look like the item. */
       main.addEventListener("error", function () {
@@ -540,7 +540,8 @@
 
     var shown = { src: gallery[0] };
     stage.addEventListener("click", function () {
-      openZoom(dialogBox(), stage, shown.src, main.alt, !!product.image);
+      openZoom(dialogBox(), stage, shown.src, main.alt,
+        product.image ? (product.fallbackPhoto || null) : null);
     });
 
     if (gallery.length > 1) {
@@ -554,7 +555,7 @@
         thumb.setAttribute("aria-label", "Photo " + (i + 1) + " of " + gallery.length);
         var pic = el("img");
         pic.src = src; pic.alt = ""; pic.loading = "lazy"; pic.decoding = "async";
-        if (product.image) pic.setAttribute("data-fallback", U.photoSrc("accessories", "other"));
+        if (product.image) pic.setAttribute("data-fallback", product.fallbackPhoto || U.photoSrc("accessories", "other"));
         thumb.appendChild(pic);
         thumb.addEventListener("click", function () {
           shown.src = src;

@@ -95,9 +95,21 @@ the next read, with no deploy.
 **An empty field renders as nothing** — the site never invents a colour, a
 spec, a discount or an availability claim.
 
-### The `image_url` field
+### The product photo
 
-The picture is chosen per product. Three shapes work:
+In `admin/add-product.html` and `admin/edit-product.html` the photo is the
+file you pick: **pressing Save uploads it first**, then stores the address
+Supabase returns, so the picture you chose is the picture the shop shows.
+`Upload image` does the same upload immediately if you want the preview
+before saving. If the upload fails, the save stops - a product is never
+created with the photo still sitting on your disk.
+
+After an upload the dashboard loads the stored address the way a visitor
+would. Supabase accepted the file but will not serve it? The page says so and
+names the setting: **Storage → `product-images` → Settings → Public: YES**
+(section 5 of `supabase/SETUP.sql` also creates the bucket and its policies).
+
+`image_url` may also hold a picture that lives somewhere else:
 
 ```
 cover-red.jpg                     a file in images/products/ of this site
@@ -105,10 +117,11 @@ images/accessories/mugs.jpg       any path inside this site
 https://cdn.example.com/a.jpg     a picture hosted elsewhere (https only)
 ```
 
-A bare file name is looked for in `catalog.imageFolder` in `js/config.js`, so
-uploading the photo and typing `cover-red.jpg` is the whole job. Anything that
-is not https or a same-site path is rejected and the category illustration is
-used instead.
+A bare file name is looked for in `catalog.imageFolder` in `js/config.js`.
+Anything that is not https or a same-site path is rejected. When a stored
+photo cannot be loaded, the card and the product view fall back to **that
+product's own category illustration**, never a photo from another category,
+and the product view labels it as an illustration.
 
 ## Where the business details live
 

@@ -558,6 +558,44 @@
     });
   }
 
+  /* ------------------------------------------------------------------ *
+   * Is this photo actually reachable?
+   * --------------------------------------------------------------------------
+   * An upload can succeed and still give the shop nothing to look at: a
+   * private bucket, a missing policy or a renamed bucket all answer 400/404
+   * to the public path while the row keeps a perfectly-shaped address. The
+   * storefront would then quietly show a stand-in picture, which reads to the
+   * owner as "my uploaded image went missing", so the check happens here,
+   * where the message can name the setting to fix.
+   *
+   * The probe is an <img> load, not a fetch: it needs no CORS header, it
+   * proves exactly what a visitor's browser proves, and a query parameter
+   * keeps a previously-failed load out of the cache.
+   * ------------------------------------------------------------------ */
+  function isStorageUrl(url) {
+    var root = baseUrl() + "/storage/v1/object/public/" + STORAGE_BUCKET + "/";
+    return !!url && String(url).indexOf(root) === 0;
+  }
+
+  function imageReadable(url, timeoutMs) {
+    if (!url) return Promise.resolve(false);
+    return new Promise(function (resolve) {
+      var probe = new Image();
+      var settled = false;
+      function done(ok) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        probe.onload = probe.onerror = null;
+        resolve(!!ok);
+      }
+      var timer = setTimeout(function () { done(false); }, timeoutMs || 12000);
+      probe.onload = function () { done(probe.naturalWidth > 0); };
+      probe.onerror = function () { done(false); };
+      probe.src = String(url) + (String(url).indexOf("?") === -1 ? "?" : "&") + "fixon_probe=" + Date.now();
+    });
+  }
+
   /* Safe cleanup only: an object is removed when no product row - active or
      not - still names its URL. Non-admin tokens see zero rows from the
      REST read below, which is why deleteObject first requires a session and
@@ -607,6 +645,8 @@
     deleteProduct: deleteProduct,
     uploadImage: uploadImage,
     deleteImageByUrl: deleteImageByUrl,
+    isStorageUrl: isStorageUrl,
+    imageReadable: imageReadable,
     clearSession: clearSession,
     bucket: STORAGE_BUCKET,
     maxImageBytes: MAX_IMAGE_BYTES
