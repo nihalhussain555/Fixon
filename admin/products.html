@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
   <meta name="robots" content="noindex">
   <title>FIXON admin - Manage products</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -19,49 +20,94 @@
       var A = window.fixonAdmin, el = A.el;
       var S = window.fixonSupabase;
 
-      A.guard("products", "Manage products", function (session, body) {
-        var state = { rows: [], q: "", cat: "all", avail: "all" };
+      var SORTS = {
+        newest: function (a, b) { return new Date(b.created_at) - new Date(a.created_at); },
+        oldest: function (a, b) { return new Date(a.created_at) - new Date(b.created_at); },
+        "price-high": function (a, b) { return (Number(b.price) || 0) - (Number(a.price) || 0); },
+        "price-low": function (a, b) { return (Number(a.price) || 0) - (Number(b.price) || 0); }
+      };
 
+      A.guard("products", "Manage products", function (session, body) {
+        var state = { rows: [], q: "", cat: "all", avail: "all", sort: "newest", page: 1, size: 25 };
+
+        /* ---------------------------------------------------------- toolbar */
         var bar = el("section", "filter-bar");
+
         var search = el("input");
         search.type = "search";
         search.placeholder = "Search by name or description...";
-        search.setAttribute("aria-label", "Search products");
+        search.setAttribute("aria-label", "Search products by name or description");
 
         var catSel = el("select");
         catSel.setAttribute("aria-label", "Filter by category");
         var availSel = el("select");
         availSel.setAttribute("aria-label", "Filter by availability");
-        [["all", "All availability"], ["active", "Active only"], ["hidden", "Hidden only"], ["out", "Out of stock"], ["instock", "In stock"]].forEach(function (o) {
+        [["all", "Any status"], ["active", "Active only"], ["hidden", "Hidden only"], ["out", "Out of stock"], ["instock", "In stock"]].forEach(function (o) {
           var opt = el("option", null, o[1]); opt.value = o[0]; availSel.appendChild(opt);
         });
+        var sortSel = el("select");
+        sortSel.setAttribute("aria-label", "Sort products");
+        [["newest", "Newest first"], ["oldest", "Oldest first"], ["price-high", "Price: high to low"], ["price-low", "Price: low to high"]].forEach(function (o) {
+          var opt = el("option", null, o[1]); opt.value = o[0]; sortSel.appendChild(opt);
+        });
 
-        var addBtn = el("a", "btn btn-primary btn-sm", "Add product");
+        var reset = el("button", "btn btn-ghost btn-sm");
+        reset.type = "button";
+        reset.appendChild(A.icon("x"));
+        reset.appendChild(el("span", null, "Clear"));
+        reset.hidden = true;
+
+        var addBtn = el("a", "btn btn-primary btn-sm");
         addBtn.href = "add-product.html";
+        addBtn.appendChild(A.icon("plus"));
+        addBtn.appendChild(el("span", null, "Add product"));
 
-        var count = el("span", null, "");
-        count.style.cssText = "color:var(--muted);font-size:.84rem;margin-left:auto;";
+        var count = el("span", "count", "");
 
         bar.appendChild(search);
         bar.appendChild(catSel);
         bar.appendChild(availSel);
-        bar.appendChild(addBtn);
+        bar.appendChild(sortSel);
+        bar.appendChild(reset);
+        bar.appendChild(el("span", "spacer"));
         bar.appendChild(count);
+        bar.appendChild(addBtn);
         body.appendChild(bar);
 
-        var host = el("section", "panel");
+        var host = el("section", "panel flush");
         body.appendChild(host);
 
-        search.addEventListener("input", function () { state.q = search.value.trim().toLowerCase(); paint(); });
-        catSel.addEventListener("change", function () { state.cat = catSel.value; paint(); });
-        availSel.addEventListener("change", function () { state.avail = availSel.value; paint(); });
+        search.addEventListener("input", function () { state.q = search.value.trim().toLowerCase(); state.page = 1; paint(); });
+        catSel.addEventListener("change", function () { state.cat = catSel.value; state.page = 1; paint(); });
+        availSel.addEventListener("change", function () { state.avail = availSel.value; state.page = 1; paint(); });
+        sortSel.addEventListener("change", function () { state.sort = sortSel.value; paint(); });
+        reset.addEventListener("click", function () {
+          search.value = ""; catSel.value = "all"; availSel.value = "all"; sortSel.value = "newest";
+          state.q = ""; state.cat = "all"; state.avail = "all"; state.sort = "newest"; state.page = 1;
+          paint();
+          search.focus();
+        });
+
+        function filtered() {
+          return state.rows.filter(function (p) {
+            if (state.q) {
+              var hay = (String(p.name) + " " + String(p.description) + " " + String(p.category)).toLowerCase();
+              if (hay.indexOf(state.q) === -1) return false;
+            }
+            if (state.cat !== "all") {
+              if (A.categoryLabel(p.category).toLowerCase() !== state.cat) return false;
+            }
+            if (state.avail === "active" && !p.is_active) return false;
+            if (state.avail === "hidden" && p.is_active) return false;
+            if (state.avail === "out" && !A.isOutOfStock(p)) return false;
+            if (state.avail === "instock" && (p.stock === null || p.stock === undefined || Number(p.stock) === 0)) return false;
+            return true;
+          }).sort(SORTS[state.sort] || SORTS.newest);
+        }
 
         function reload() {
           host.textContent = "";
-          var loading = el("div", "loading-line");
-          loading.appendChild(el("div", "spinner"));
-          loading.appendChild(el("span", null, "Loading products..."));
-          host.appendChild(loading);
+          host.appendChild(A.skeletonRows(6));
           S.listProducts().then(function (rows) {
             state.rows = rows;
             fillCategories();
@@ -69,7 +115,14 @@
           }, function (err) {
             host.textContent = "";
             if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
-            host.appendChild(el("div", "notice error", (err && err.message) || "The products could not be loaded."));
+            var box = el("div", "notice error");
+            box.appendChild(A.icon("x-circle"));
+            box.appendChild(el("span", null, (err && err.message) || "The products could not be loaded."));
+            host.appendChild(box);
+            var again = el("button", "btn btn-ghost", "Try again");
+            again.type = "button";
+            again.addEventListener("click", reload);
+            host.appendChild(again);
           });
         }
 
@@ -92,39 +145,38 @@
           catSel.value = (current === "all" || seen[current]) ? current : "all";
         }
 
-        function visible() {
-          return state.rows.filter(function (p) {
-            if (state.q) {
-              var hay = (String(p.name) + " " + String(p.description)).toLowerCase();
-              if (hay.indexOf(state.q) === -1) return false;
-            }
-            if (state.cat !== "all") {
-              if (A.categoryLabel(p.category).toLowerCase() !== state.cat) return false;
-            }
-            if (state.avail === "active" && !p.is_active) return false;
-            if (state.avail === "hidden" && p.is_active) return false;
-            if (state.avail === "out" && Number(p.stock) !== 0) return false;
-            if (state.avail === "instock" && (p.stock === null || p.stock === undefined || Number(p.stock) === 0)) return false;
-            return true;
-          });
-        }
-
         function paint() {
           host.textContent = "";
-          var rows = visible();
-          count.textContent = rows.length + " of " + state.rows.length + " shown";
+          var rows = filtered();
+          var pages = Math.max(1, Math.ceil(rows.length / state.size));
+          if (state.page > pages) state.page = pages;
+          var from = (state.page - 1) * state.size;
+          var slice = rows.slice(from, from + state.size);
+          var filtering = !!(state.q || state.cat !== "all" || state.avail !== "all");
+          reset.hidden = !filtering;
+          count.textContent = rows.length === state.rows.length
+            ? state.rows.length + (state.rows.length === 1 ? " product" : " products")
+            : rows.length + " of " + state.rows.length + " shown";
 
           if (!state.rows.length) {
-            var e0 = el("div", "empty");
-            e0.appendChild(el("p", null, "No products yet. The shop is showing its old catalog until you add some."));
-            var a0 = el("a", "btn btn-primary", "Add the first product");
-            a0.href = "add-product.html";
-            e0.appendChild(a0);
-            host.appendChild(e0);
+            host.appendChild(A.emptyState({
+              icon: "box",
+              title: "No products in the shop yet",
+              message: "This table is the whole catalog: whatever is saved here is what the storefront shows its visitors.",
+              actions: [{ label: "Add the first product", href: "add-product.html" }]
+            }));
             return;
           }
           if (!rows.length) {
-            host.appendChild(el("div", "empty", "Nothing matches the current search and filters."));
+            host.appendChild(A.emptyState({
+              icon: "search",
+              title: "Nothing matches those filters",
+              message: "Try a shorter search, or clear the filters to see all " + state.rows.length + " products again.",
+              actions: [{
+                label: "Clear filters", kind: "btn-ghost",
+                onClick: function () { reset.click(); }
+              }]
+            }));
             return;
           }
 
@@ -132,29 +184,78 @@
           var table = el("table", "data");
           var thead = el("thead");
           var hr = el("tr");
-          ["", "Name", "Category", "Price", "Stock", "Status", ""].forEach(function (t, i) {
-            var th = el("th", null, t);
-            if (i === 6) th.style.textAlign = "right";
+          ["Photo", "Product", "Category", "Price", "Stock", "Status", "Added", "Actions"].forEach(function (t, i) {
+            var th = el("th", null, i === 0 ? "" : t);
+            if (i === 7) th.style.textAlign = "right";
             hr.appendChild(th);
           });
           thead.appendChild(hr);
           table.appendChild(thead);
 
           var tbody = el("tbody");
-          rows.forEach(function (p) { tbody.appendChild(rowFor(p)); });
+          slice.forEach(function (p) { tbody.appendChild(rowFor(p)); });
           table.appendChild(tbody);
           wrap.appendChild(table);
           host.appendChild(wrap);
+
+          /* Shown for any list longer than the smallest page size, not just
+             when there is more than one page: picking 100 per page would
+             otherwise hide the control that lets you pick it back down. */
+          if (rows.length > 10) host.appendChild(pager(rows.length, pages));
+        }
+
+        function pager(totalRows, pages) {
+          var box = el("div", "pager");
+          var from = (state.page - 1) * state.size + 1;
+          var to = Math.min(totalRows, state.page * state.size);
+          box.appendChild(el("span", "page-size", "Showing " + from + "-" + to + " of " + totalRows));
+
+          var btns = el("div", "pager-btns");
+          var prev = el("button", "btn btn-ghost btn-sm");
+          prev.type = "button";
+          prev.appendChild(A.icon("chevron-left"));
+          prev.appendChild(el("span", null, "Prev"));
+          prev.disabled = state.page <= 1;
+          prev.addEventListener("click", function () { state.page--; paint(); });
+
+          var label = el("span", "page-no", "Page " + state.page + " of " + pages);
+          label.setAttribute("aria-live", "polite");
+
+          var next = el("button", "btn btn-ghost btn-sm");
+          next.type = "button";
+          next.appendChild(el("span", null, "Next"));
+          next.appendChild(A.icon("chevron-right"));
+          next.disabled = state.page >= pages;
+          next.addEventListener("click", function () { state.page++; paint(); });
+
+          btns.appendChild(prev);
+          btns.appendChild(label);
+          btns.appendChild(next);
+          box.appendChild(btns);
+
+          var size = el("div", "page-size");
+          size.appendChild(el("span", null, "Per page"));
+          var sel = el("select");
+          sel.setAttribute("aria-label", "Products shown per page");
+          [10, 25, 50, 100].forEach(function (n) {
+            var o = el("option", null, String(n)); o.value = String(n);
+            if (n === state.size) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener("change", function () { state.size = Number(sel.value) || 25; state.page = 1; paint(); });
+          size.appendChild(sel);
+          box.appendChild(size);
+          return box;
         }
 
         /* Every write goes through the same busy/refresh handling: a row's
            buttons stop the moment its save starts, an error is named, and a
-           successful PATCH re-reads the list so the table always shows what
+           successful change re-reads the list so the table always shows what
            the database actually holds - not what the form hoped for. */
-        function withBusy(buttons, work, rowName) {
+        function withBusy(buttons, work, rowName, doneMessage) {
           buttons.forEach(function (b) { b.disabled = true; });
           work().then(function () {
-            A.toast((rowName || "The product") + " updated.", "success");
+            A.toast((rowName || "The product") + (doneMessage || " updated."), "success");
             reload();
           }, function (err) {
             if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
@@ -163,26 +264,32 @@
           });
         }
 
+        function photoCell(p) {
+          var td = el("td");
+          if (p.image_url) {
+            var img = el("img", "thumb");
+            img.src = p.image_url;
+            img.alt = "";
+            img.loading = "lazy";
+            img.decoding = "async";
+            td.appendChild(img);
+          } else {
+            var none = el("span", "thumb-none");
+            none.appendChild(A.icon("image"));
+            none.setAttribute("title", "No photo saved - the shop shows this product's category illustration");
+            td.appendChild(none);
+          }
+          return td;
+        }
+
         function rowFor(p) {
           var tr = el("tr");
 
-          var tdPhoto = el("td");
-          if (p.image_url) {
-            var img = el("img", "thumb");
-            img.src = p.image_url; img.alt = ""; img.loading = "lazy";
-            tdPhoto.appendChild(img);
-          } else {
-            tdPhoto.appendChild(el("span", "thumb-none"));
-          }
-          tr.appendChild(tdPhoto);
+          tr.appendChild(photoCell(p));
 
-          var tdName = el("td");
-          tdName.appendChild(el("div", null, p.name));
-          if (p.description) {
-            var d = el("div", null, p.description);
-            d.style.cssText = "color:var(--muted);font-size:.78rem;max-width:34ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
-            tdName.appendChild(d);
-          }
+          var tdName = el("td", "name-cell");
+          tdName.appendChild(el("b", null, p.name));
+          if (p.description) tdName.appendChild(el("span", null, p.description));
           tr.appendChild(tdName);
 
           tr.appendChild(el("td", null, A.categoryLabel(p.category) || "—"));
@@ -202,9 +309,10 @@
           priceForm.appendChild(priceBtn);
           priceForm.addEventListener("submit", function (e) {
             e.preventDefault();
+            if (priceBtn.disabled) return;
             withBusy([priceBtn], function () {
               return S.updateProduct(p.id, formValues(p, { price: priceIn.value }));
-            }, p.name);
+            }, p.name, "'s price is updated.");
           });
           tdPrice.appendChild(priceForm);
           tr.appendChild(tdPrice);
@@ -224,59 +332,81 @@
           stockForm.appendChild(stockBtn);
           stockForm.addEventListener("submit", function (e) {
             e.preventDefault();
+            if (stockBtn.disabled) return;
             withBusy([stockBtn], function () {
               return S.updateProduct(p.id, formValues(p, { stock: stockIn.value }));
-            }, p.name);
+            }, p.name, "'s stock is updated.");
           });
           tdStock.appendChild(stockForm);
           tr.appendChild(tdStock);
 
-          /* Status pill + quick activate/hide. */
           var tdState = el("td");
-          var pill = el("span", "pill " + (p.is_active ? "on" : "off"), p.is_active ? "Active" : "Hidden");
-          tdState.appendChild(pill);
-          if (p.is_active && Number(p.stock) === 0) {
-            tdState.appendChild(el("br"));
-            tdState.appendChild(el("span", "pill out", "Out of stock"));
-          }
+          tdState.appendChild(A.statusPill(p));
           tr.appendChild(tdState);
 
-          var tdAct = el("td");
-          tdAct.style.cssText = "text-align:right;white-space:nowrap;";
-          var tog = el("button", "btn btn-ghost btn-sm", p.is_active ? "Hide" : "Show");
+          tr.appendChild(el("td", "muted nowrap", A.fmtDate(p.created_at)));
+
+          var tdAct = el("td", "acts");
+
+          var tog = el("button", "btn btn-ghost btn-sm");
           tog.type = "button";
+          tog.appendChild(A.icon(p.is_active ? "eye-off" : "eye"));
+          tog.appendChild(el("span", null, p.is_active ? "Hide" : "Show"));
+          tog.title = p.is_active ? "Hide this product from customers" : "Show this product on the shop";
           tog.addEventListener("click", function () {
             withBusy([tog], function () {
               return S.updateProduct(p.id, formValues(p, { is_active: !p.is_active }));
-            }, p.name);
+            }, p.name, p.is_active ? " is now hidden from customers." : " is live on the shop.");
           });
           tdAct.appendChild(tog);
 
-          var edit = el("a", "btn btn-ghost btn-sm", "Edit");
+          var edit = el("a", "btn btn-ghost btn-sm");
           edit.href = "edit-product.html?id=" + encodeURIComponent(p.id);
+          edit.appendChild(A.icon("pencil"));
+          edit.appendChild(el("span", null, "Edit"));
           tdAct.appendChild(edit);
 
-          var del = el("button", "btn btn-danger btn-sm", "Delete");
+          var del = el("button", "btn btn-danger btn-sm");
           del.type = "button";
+          del.appendChild(A.icon("trash"));
+          del.appendChild(el("span", null, "Delete"));
           del.addEventListener("click", function () {
-            if (!A.confirmAction('Delete "' + p.name + '"?\n\nThis removes it from the shop for good. Its uploaded photo is only deleted if no other product still uses it.')) return;
-            del.disabled = true;
-            S.deleteProduct(p.id).then(function () {
-              /* Safe cleanup, never a blind delete: the helper checks every
-                 row before removing the object and refuses external URLs. */
-              return S.deleteImageByUrl(p.image_url);
-            }).then(function () {
-              A.toast(p.name + " deleted.", "success");
-              reload();
-            }, function (err) {
-              if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
-              A.toast((err && err.message) || "The delete failed.", "error");
-              del.disabled = false;
+            /* The dialog names the product, because "Delete?" alone is how a
+               shop owner ends up removing the wrong row. */
+            A.confirmAction({
+              title: "Delete this product?",
+              message: "\"" + p.name + "\"" + (p.price ? " (" + A.money(p.price) + ")" : "") + " will be removed from the shop for good.",
+              detail: p.image_url
+                ? "Its uploaded photo is deleted from storage too - but only when no other product still uses that same file."
+                : "This product has no uploaded photo, so nothing in storage changes.",
+              confirmLabel: "Delete product"
+            }).then(function (yes) {
+              if (!yes) return;
+              A.busy(del, true);
+              edit.style.pointerEvents = "none";
+              S.deleteProduct(p.id).then(function () {
+                /* Safe cleanup, never a blind delete: the helper checks every
+                   row before removing the object and refuses external URLs. */
+                return S.deleteImageByUrl(p.image_url);
+              }).then(function () {
+                A.toast(p.name + " deleted.", "success");
+                reload();
+              }, function (err) {
+                if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+                A.toast((err && err.message) || "The delete failed.", "error");
+                A.busy(del, false);
+                edit.style.pointerEvents = "";
+              });
             });
           });
           tdAct.appendChild(del);
           tr.appendChild(tdAct);
 
+          /* The stacked mobile layout reads each cell's heading from here. */
+          var labels = ["", "Product", "Category", "Price", "Stock", "Status", "Added", ""];
+          for (var i = 0; i < tr.children.length; i++) {
+            if (labels[i]) tr.children[i].dataset.label = labels[i];
+          }
           return tr;
         }
 

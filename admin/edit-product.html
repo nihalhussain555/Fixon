@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
   <meta name="robots" content="noindex">
   <title>FIXON admin - Edit product</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -25,36 +26,62 @@
            cannot inject anything into this page. */
         var id = new URLSearchParams(window.location.search).get("id") || "";
 
-        var host = el("section", "panel");
+        var back = el("a", "btn btn-ghost btn-sm");
+        back.href = "products.html";
+        back.appendChild(A.icon("chevron-left"));
+        back.appendChild(el("span", null, "All products"));
+        body.appendChild(back);
+
+        var host = el("div", "stack");
         host.id = "formHost";
         body.appendChild(host);
 
-        var loading = el("div", "loading-line");
-        loading.appendChild(el("div", "spinner"));
-        loading.appendChild(el("span", null, "Loading the product..."));
-        host.appendChild(loading);
+        host.appendChild(A.skeletonStats(2));
+        host.appendChild(A.loadingLine("Loading this product from Supabase..."));
 
         if (!id) {
           host.textContent = "";
-          host.appendChild(el("div", "notice error", "This page needs a product to edit. Open one from Manage products."));
+          host.appendChild(A.emptyState({
+            icon: "search",
+            title: "No product to edit",
+            message: "This page needs a product. Open one from Manage products and press Edit.",
+            actions: [{ label: "Manage products", href: "products.html" }]
+          }));
           return;
         }
 
         window.fixonSupabase.getProduct(id).then(function (row) {
           host.textContent = "";
           if (!row) {
-            host.appendChild(el("div", "notice error", "No product matches this address - it may have been deleted, or the link points at the internal id of a product hidden from visitors."));
-            var back = el("a", "btn btn-ghost", "Back to Manage products");
-            back.href = "products.html";
-            host.appendChild(back);
+            host.appendChild(A.emptyState({
+              icon: "search",
+              title: "That product is not here",
+              message: "It may have been deleted, or the link points at the internal id of a product visitors cannot see.",
+              actions: [{ label: "Back to Manage products", href: "products.html" }]
+            }));
             return;
           }
           document.title = "FIXON admin - Edit " + row.name;
+
+          var was = el("div", "notice info");
+          was.appendChild(A.icon("calendar"));
+          was.appendChild(el("span", null, "Saved on " + A.fmtDateTime(row.created_at) +
+            (row.updated_at && new Date(row.updated_at) - new Date(row.created_at) > 60000 ? ", last changed " + A.timeAgo(row.updated_at) : "") +
+            ". Changing the photo uploads the new file first; the old one is only deleted from storage when no other product uses it."));
+          host.appendChild(was);
+
           window.fixonAdminForm.start("edit", row);
         }, function (err) {
           host.textContent = "";
           if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
-          host.appendChild(el("div", "notice error", (err && err.message) || "The product could not be loaded."));
+          var box = el("div", "notice error");
+          box.appendChild(A.icon("x-circle"));
+          box.appendChild(el("span", null, (err && err.message) || "The product could not be loaded."));
+          host.appendChild(box);
+          var again = el("button", "btn btn-ghost", "Try again");
+          again.type = "button";
+          again.addEventListener("click", function () { window.location.reload(); });
+          host.appendChild(again);
         });
       });
     })();

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
   <meta name="robots" content="noindex">
   <title>FIXON admin - Dashboard</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -16,118 +17,238 @@
   <script>
     (function () {
       "use strict";
-      var A = window.fixonAdmin, el = A.el;
+      var A = window.fixonAdmin, el = A.el, S = window.fixonSupabase;
 
       A.guard("dashboard", "Dashboard", function (session, body) {
-        var loading = el("div", "loading-line");
-        loading.appendChild(el("div", "spinner"));
-        loading.appendChild(el("span", null, "Loading the shop's numbers..."));
-        body.appendChild(loading);
-
-        window.fixonSupabase.listProducts().then(function (rows) {
-          body.textContent = "";
-          paint(rows, body);
-        }, function (err) {
-          body.textContent = "";
-          if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
-          body.appendChild(el("div", "notice error", err && err.message ? err.message : "The products could not be loaded."));
-        });
-      });
-
-      function paint(rows, body) {
-        var total = rows.length;
-        var active = rows.filter(function (p) { return p.is_active; }).length;
-        var soldOut = rows.filter(function (p) { return p.is_active && Number(p.stock) === 0; }).length;
-        var categories = {};
-        rows.forEach(function (p) {
-          var key = String(p.category || "").trim().toLowerCase();
-          if (key) categories[key] = true;
-        });
         var weekAgo = Date.now() - 7 * 86400000;
-        var recent = rows.filter(function (p) { return new Date(p.created_at).getTime() >= weekAgo; });
-        var fiveNewest = rows.slice(0, 5);
 
-        if (!total) {
-          var empty = el("div", "empty");
-          empty.appendChild(el("p", null, "No products are in the database yet."));
-          var go = el("a", "btn btn-primary", "Add the first product");
-          go.href = "add-product.html";
-          empty.appendChild(go);
-          body.appendChild(empty);
-          return;
+        /* ---------------------------------------------------------------- *
+         * The welcome strip is painted before the numbers arrive: an admin
+         * who just signed in should see their own name immediately, not a
+         * spinner, while the single products request is still in flight.
+         * ---------------------------------------------------------------- */
+        var hello = el("section", "panel welcome");
+        hello.appendChild(A.avatar(session.user, "avatar-xl"));
+        var helloTxt = el("div", "welcome-txt");
+        var name = A.displayName(session.user) || String(session.user.email || "").split("@")[0] || "there";
+        helloTxt.appendChild(el("h2", null, "Welcome back, " + name));
+        var helloSub = el("p", "muted small", "Fetching the shop's numbers from Supabase...");
+        helloTxt.appendChild(helloSub);
+        hello.appendChild(helloTxt);
+        var reload = el("button", "btn btn-ghost");
+        reload.type = "button";
+        reload.appendChild(A.icon("refresh"));
+        reload.appendChild(el("span", null, "Refresh"));
+        hello.appendChild(reload);
+        body.appendChild(hello);
+
+        var host = el("div", "stack");
+        body.appendChild(host);
+
+        reload.addEventListener("click", load);
+
+        function skeleton() {
+          host.textContent = "";
+          host.appendChild(A.skeletonStats(4));
+          host.appendChild(A.skeletonRows(5));
         }
 
-        var grid = el("section", "stat-grid");
-        [
-          { num: total, lbl: "Total products", cls: "" },
-          { num: active, lbl: "Active on the shop", cls: "accent" },
-          { num: soldOut, lbl: "Out of stock", cls: soldOut ? "warn" : "" },
-          { num: Object.keys(categories).length, lbl: "Categories used", cls: "" },
-          { num: recent.length, lbl: "Added in last 7 days", cls: "" }
-        ].forEach(function (card) {
-          var c = el("div", "stat-card " + card.cls);
-          c.appendChild(el("div", "num", String(card.num)));
-          c.appendChild(el("div", "lbl", card.lbl));
-          grid.appendChild(c);
-        });
-        body.appendChild(grid);
-
-        /* Recently added table */
-        var panel = el("section", "panel");
-        var head = el("div");
-        head.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;";
-        head.appendChild(el("h2", null, "Recently added"));
-        var all = el("a", "btn btn-ghost btn-sm", "Manage all products");
-        all.href = "products.html";
-        head.appendChild(all);
-        panel.appendChild(head);
-
-        var wrap = el("div", "table-wrap");
-        var table = el("table", "data");
-        var thead = el("thead");
-        var hr = el("tr");
-        ["Photo", "Name", "Category", "Price", "Stock", "Status", "Added"].forEach(function (t) {
-          hr.appendChild(el("th", null, t));
-        });
-        thead.appendChild(hr);
-        table.appendChild(thead);
-
-        var tbody = el("tbody");
-        fiveNewest.forEach(function (p) { tbody.appendChild(rowFor(p)); });
-        table.appendChild(tbody);
-        wrap.appendChild(table);
-        panel.appendChild(wrap);
-        body.appendChild(panel);
-
-        var hint = el("p", null, "Counts update as soon as this page loads - the shop's own visitors see the same products within moments of any change made here.");
-        hint.style.color = "var(--muted)";
-        hint.style.fontSize = ".82rem";
-        body.appendChild(hint);
-      }
-
-      function rowFor(p) {
-        var tr = el("tr");
-        var tdPhoto = el("td");
-        if (p.image_url) {
-          var img = el("img", "thumb");
-          img.src = p.image_url;
-          img.alt = "";
-          img.loading = "lazy";
-          tdPhoto.appendChild(img);
-        } else {
-          tdPhoto.appendChild(el("span", "thumb-none"));
+        function load() {
+          skeleton();
+          A.busy(reload, true);
+          S.listProducts().then(function (rows) {
+            A.busy(reload, false);
+            host.textContent = "";
+            paint(rows);
+          }, function (err) {
+            A.busy(reload, false);
+            host.textContent = "";
+            if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+            var box = el("div", "notice error");
+            box.appendChild(A.icon("x-circle"));
+            box.appendChild(el("span", null, (err && err.message) || "The products could not be loaded."));
+            host.appendChild(box);
+            var again = el("button", "btn btn-ghost", "Try again");
+            again.type = "button";
+            again.addEventListener("click", load);
+            host.appendChild(again);
+          });
         }
-        tr.appendChild(tdPhoto);
-        tr.appendChild(el("td", null, p.name));
-        tr.appendChild(el("td", null, window.fixonAdmin.categoryLabel(p.category) || "—"));
-        tr.appendChild(el("td", "price", window.fixonAdmin.money(p.price)));
-        tr.appendChild(el("td", null, p.stock === null || p.stock === undefined ? "—" : String(p.stock)));
-        var tdState = el("td");
-        tdState.appendChild(el("span", "pill " + (p.is_active ? "on" : "off"), p.is_active ? "Active" : "Hidden"));
-        tr.appendChild(tdState);
-        tr.appendChild(el("td", null, window.fixonAdmin.fmtDate(p.created_at)));
-        return tr;
-      }
+
+        function paint(rows) {
+          var total = rows.length;
+          var active = rows.filter(function (p) { return !!p.is_active; }).length;
+          var hidden = total - active;
+          /* Out of stock only counts rows a customer can actually reach: a
+             hidden product with no stock is a draft, not an empty shelf. */
+          var soldOut = rows.filter(function (p) { return p.is_active && A.isOutOfStock(p); }).length;
+          var recent = rows.filter(function (p) { return new Date(p.created_at).getTime() >= weekAgo; });
+
+          helloSub.textContent = total
+            ? "The shop is holding " + total + (total === 1 ? " product" : " products") +
+              ". Numbers are read straight from Supabase each time this page loads."
+            : "No products are stored yet, so the shop has nothing to show. Adding the first one takes a minute.";
+
+          if (!total) {
+            host.appendChild(A.emptyState({
+              icon: "box",
+              title: "Your catalog is empty",
+              message: "Products live in your Supabase project and appear on the shop as soon as one is saved. Nothing else needs switching on.",
+              actions: [
+                { label: "Add the first product", href: "add-product.html" },
+                { label: "View the shop", href: "../", kind: "btn-ghost", external: true }
+              ]
+            }));
+            return;
+          }
+
+          var grid = el("section", "stat-grid");
+          [
+            { icon: "layers", num: total, lbl: "Total products", sub: hidden ? hidden + " saved as hidden drafts" : "every one is visible", tone: "var(--accent-strong)", soft: "var(--accent-soft)" },
+            { icon: "check-circle", num: active, lbl: "Active on the shop", sub: active === total ? "all products are live" : Math.round(active / total * 100) + "% of the catalog", tone: "var(--ok)", soft: "var(--ok-soft)" },
+            { icon: "trend-down", num: soldOut, lbl: "Out of stock", sub: soldOut ? "customers can still see them" : "nothing sold out", tone: soldOut ? "var(--danger)" : "var(--muted)", soft: soldOut ? "var(--danger-soft)" : "var(--surface-2)" },
+            { icon: "plus", num: recent.length, lbl: "Added in 7 days", sub: recent.length ? "newest: " + recent[0].name : "a quiet week", tone: "var(--accent)", soft: "var(--accent-soft)" }
+          ].forEach(function (c) {
+            grid.appendChild(statCard(c));
+          });
+          host.appendChild(grid);
+
+          var actions = el("section", "action-grid");
+          [
+            { icon: "plus-square", label: "Add a product", sub: "Name, price, photo and stock in one form", href: "add-product.html" },
+            { icon: "box", label: "Manage products", sub: "Search, filter, edit prices and delete", href: "products.html" }
+          ].forEach(function (a) {
+            var card = el("a", "action-card");
+            card.href = a.href;
+            var chip = el("span", "stat-chip");
+            chip.appendChild(A.icon(a.icon));
+            card.appendChild(chip);
+            var txt = el("div");
+            txt.appendChild(el("b", null, a.label));
+            txt.appendChild(el("span", null, a.sub));
+            card.appendChild(txt);
+            card.appendChild(A.icon("arrow-right"));
+            actions.appendChild(card);
+          });
+          host.appendChild(actions);
+
+          /* Recently added: the five newest rows, the same columns the manage
+             list uses so the two pages never disagree. */
+          var panel = el("section", "panel flush");
+          var head = el("div", "section-title");
+          head.style.cssText = "padding:18px 20px 12px;";
+          head.appendChild(el("h2", null, "Recently added"));
+          var all = el("a", "btn btn-ghost btn-sm", "Manage all products");
+          all.href = "products.html";
+          head.appendChild(all);
+          panel.appendChild(head);
+
+          var wrap = el("div", "table-wrap");
+          var table = el("table", "data");
+          var thead = el("thead");
+          var hr = el("tr");
+          ["", "Product", "Category", "Price", "Stock", "Status", "Added"].forEach(function (t, i) {
+            var th = el("th", null, t);
+            if (i === 6) th.style.textAlign = "right";
+            hr.appendChild(th);
+          });
+          thead.appendChild(hr);
+          table.appendChild(thead);
+          var tbody = el("tbody");
+          rows.slice(0, 5).forEach(function (p) { tbody.appendChild(rowFor(p)); });
+          table.appendChild(tbody);
+          wrap.appendChild(table);
+          panel.appendChild(wrap);
+          host.appendChild(panel);
+
+          /* Activity: this project has no activity log table and the schema
+             stays untouched, so the honest substitute is what the products
+             rows themselves already carry - created_at and updated_at. */
+          var touched = rows.map(function (p) {
+            var created = new Date(p.created_at).getTime();
+            var updated = new Date(p.updated_at).getTime();
+            var edited = isFinite(updated) && updated - created > 60000;
+            return { row: p, at: edited ? updated : created, edited: edited };
+          }).filter(function (x) { return isFinite(x.at); });
+          touched.sort(function (a, b) { return b.at - a.at; });
+
+          var act = el("section", "panel");
+          var actHead = el("div", "section-title");
+          actHead.appendChild(el("h2", null, "Latest changes"));
+          actHead.appendChild(el("span", "count", "from each row's created and updated time"));
+          act.appendChild(actHead);
+          var list = el("div", "stack");
+          touched.slice(0, 5).forEach(function (x) {
+            var line = el("div", "row");
+            var chip = el("span", "stat-chip");
+            chip.style.cssText = "width:32px;height:32px;border-radius:9px;";
+            chip.appendChild(A.icon(x.edited ? "pencil" : "plus"));
+            line.appendChild(chip);
+            var words = el("div");
+            words.style.cssText = "flex:1;min-width:0;";
+            words.appendChild(el("b", null, x.row.name));
+            words.appendChild(el("span", "muted small", (x.edited ? "Updated " : "Created ") + A.timeAgo(new Date(x.at).toISOString())));
+            line.appendChild(words);
+            list.appendChild(line);
+          });
+          act.appendChild(list);
+          host.appendChild(act);
+
+          var hint = el("p", "muted small", "Customers see a change as soon as their shop page refreshes - the storefront re-reads Supabase on load and then on the interval set in js/config.js.");
+          host.appendChild(hint);
+        }
+
+        function statCard(c) {
+          var card = el("div", "stat-card");
+          card.style.setProperty("--tone", c.tone);
+          card.style.setProperty("--tone-soft", c.soft);
+          var top = el("div", "stat-top");
+          top.appendChild(el("div", "lbl", c.lbl));
+          var chip = el("span", "stat-chip");
+          chip.appendChild(A.icon(c.icon));
+          top.appendChild(chip);
+          card.appendChild(top);
+          card.appendChild(el("div", "num", String(c.num)));
+          card.appendChild(el("div", "sub", c.sub));
+          return card;
+        }
+
+        function rowFor(p) {
+          var tr = el("tr");
+          var tdPhoto = el("td");
+          if (p.image_url) {
+            var img = el("img", "thumb");
+            img.src = p.image_url;
+            img.alt = "";
+            img.loading = "lazy";
+            img.decoding = "async";
+            tdPhoto.appendChild(img);
+          } else {
+            var none = el("span", "thumb-none");
+            none.appendChild(A.icon("image"));
+            tdPhoto.appendChild(none);
+          }
+          tr.appendChild(tdPhoto);
+
+          var nameCell = el("td", "name-cell");
+          nameCell.appendChild(el("b", null, p.name));
+          if (p.description) nameCell.appendChild(el("span", null, p.description));
+          tr.appendChild(nameCell);
+
+          tr.appendChild(el("td", null, A.categoryLabel(p.category) || "—"));
+          tr.appendChild(el("td", "price", A.money(p.price)));
+          tr.appendChild(el("td", null, p.stock === null || p.stock === undefined ? "Not tracked" : String(p.stock)));
+          var tdState = el("td");
+          tdState.appendChild(A.statusPill(p));
+          tr.appendChild(tdState);
+          var tdAdded = el("td", "muted nowrap", A.fmtDate(p.created_at));
+          tdAdded.style.textAlign = "right";
+          tr.appendChild(tdAdded);
+          return tr;
+        }
+
+        load();
+      });
     })();
   </script>
 </body>

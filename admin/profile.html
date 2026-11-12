@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="robots" content="noindex">
+  <title>FIXON admin - Profile</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <div id="toasts"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="admin.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      var A = window.fixonAdmin, el = A.el;
+      var S = window.fixonSupabase;
+      var IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+      function bytes(n) {
+        if (!n && n !== 0) return "";
+        if (n < 1048576) return Math.round(n / 1024) + " KB";
+        return (n / 1048576).toFixed(1) + " MB";
+      }
+
+      A.guard("profile", "Profile", function (session, body) {
+        var user = session.user || {};
+
+        var head = el("div", "page-head");
+        head.appendChild(el("h2", null, "Your admin account"));
+        head.appendChild(el("p", null, "These details belong to your Supabase Auth login, not to the products table. Nothing on this page shows a token, a password or an internal id."));
+        body.appendChild(head);
+
+        var host = el("div", "stack");
+        body.appendChild(host);
+        host.appendChild(A.skeletonStats(2));
+
+        function failed(err) {
+          host.textContent = "";
+          if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+          var box = el("div", "notice error");
+          box.appendChild(A.icon("x-circle"));
+          box.appendChild(el("span", null, (err && err.message) || "Your account could not be loaded."));
+          host.appendChild(box);
+          var again = el("button", "btn btn-ghost", "Try again");
+          again.type = "button";
+          again.addEventListener("click", function () { window.location.reload(); });
+          host.appendChild(again);
+        }
+
+        /* A recovery link proves who you are but carries no password, so
+           login.html forwards its hash here. The pointer is given once, after
+           the account is on screen - paint() runs more than once. */
+        var greeted = false;
+        function greetRecovery() {
+          if (greeted || window.location.hash !== "#new-password") return;
+          greeted = true;
+          var input = document.getElementById("p_new");
+          if (!input) return;
+          input.focus();
+          input.scrollIntoView({ block: "center" });
+          A.toast("Reset link accepted. Choose a new password, then press Change password.", "success");
+        }
+
+        /* The session copy in localStorage is painted at once; the live read
+           from /auth/v1/user then confirms it, because an admin may have
+           changed their name in another tab. */
+        paint(user);
+        S.currentUser().then(function (fresh) {
+          if (fresh && fresh.id) {
+            user = fresh;
+            paint(user);
+          }
+          greetRecovery();
+        }, function (err) {
+          if (err && (err.code === "signed_out" || err.status === 401 || err.status === 403)) failed(err);
+          /* Anything else (a network blip, a Supabase version that answers
+             this call differently) is not worth shouting about - the values
+             from the session are already on screen. */
+          else A.toast("The live account details could not be re-read, so what is shown comes from your last sign-in.", "warn");
+          greetRecovery();
+        });
+
+        /* ------------------------------------------------------------ *
+         * The whole page, repainted from the user object
+         * ------------------------------------------------------------ */
+        function paint(u) {
+          host.textContent = "";
+          var meta = (u && u.user_metadata) || {};
+
+          /* ------------------------------------------------ identity */
+          var who = el("section", "panel welcome");
+          who.appendChild(A.avatar(u, "avatar-xl"));
+          var whoTxt = el("div", "welcome-txt");
+          whoTxt.appendChild(el("h2", null, A.displayName(u) || String(u.email || "").split("@")[0] || "Administrator"));
+          whoTxt.appendChild(el("p", "muted small", u.email || ""));
+          var pills = el("div", "row");
+          pills.style.marginTop = "6px";
+          pills.appendChild(el("span", "pill on", "Shop administrator"));
+          pills.appendChild(el("span", "pill info", (u.app_metadata && u.app_metadata.provider) || "email"));
+          whoTxt.appendChild(pills);
+          who.appendChild(whoTxt);
+          host.appendChild(who);
+
+          /* ------------------------------------------------ details */
+          var card = el("section", "panel");
+          card.appendChild(head2("Account details", "The name is what this dashboard calls you; it is stored with your login and is never shown to customers."));
+          var grid = el("div", "form-grid");
+
+          var nameIn = el("input");
+          nameIn.type = "text";
+          nameIn.id = "p_name";
+          nameIn.maxLength = 60;
+          nameIn.value = meta.display_name || "";
+          nameIn.placeholder = "e.g. Nihal";
+          grid.appendChild(fieldNode("p_name", "Display name", nameIn, "Up to 60 characters.", null));
+
+          var emailIn = el("input");
+          emailIn.type = "text";
+          emailIn.id = "p_email";
+          emailIn.value = u.email || "";
+          emailIn.disabled = true;
+          grid.appendChild(fieldNode("p_email", "Sign-in email", emailIn,
+            "Only the project owner can move an admin login to another address - in Supabase: Authentication -> Users.", null));
+
+          var createdIn = el("input");
+          createdIn.type = "text";
+          createdIn.id = "p_created";
+          createdIn.value = u.created_at ? A.fmtDateTime(u.created_at) : "Not reported by Supabase";
+          createdIn.disabled = true;
+          grid.appendChild(fieldNode("p_created", "Account created", createdIn, null, null));
+
+          var lastIn = el("input");
+          lastIn.type = "text";
+          lastIn.id = "p_last";
+          lastIn.value = (u.last_sign_in || u.last_sign_in_at) ? A.fmtDateTime(u.last_sign_in || u.last_sign_in_at) : "Not reported by Supabase";
+          lastIn.disabled = true;
+          grid.appendChild(fieldNode("p_last", "Last sign-in", lastIn, null, null));
+
+          card.appendChild(grid);
+
+          var saveRow = el("div", "row");
+          saveRow.style.marginTop = "16px";
+          var saveBtn = el("button", "btn btn-primary");
+          saveBtn.type = "button";
+          saveBtn.appendChild(A.icon("check"));
+          saveBtn.appendChild(el("span", null, "Save changes"));
+          var savedNote = el("span", "muted small", "");
+          saveRow.appendChild(saveBtn);
+          saveRow.appendChild(savedNote);
+          card.appendChild(saveRow);
+          host.appendChild(card);
+
+          saveBtn.addEventListener("click", function () {
+            var name = nameIn.value.trim();
+            if (name && name.length < 2) {
+              setErr("p_name", "A display name needs at least 2 characters, or leave it empty.");
+              nameIn.focus();
+              return;
+            }
+            setErr("p_name", "");
+            A.busy(saveBtn, true);
+            savedNote.textContent = "Saving...";
+            S.updateAccount({ display_name: name, avatar_url: meta.avatar_url || "" }).then(function (updated) {
+              if (updated && updated.id) user = updated;
+              A.setShellUser(user);
+              savedNote.textContent = "";
+              A.toast("Account details saved.", "success");
+            }, function (err) {
+              savedNote.textContent = "";
+              if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+              A.toast((err && err.message) || "The account details could not be saved.", "error");
+            }).finally(function () {
+              A.busy(saveBtn, false);
+            });
+          });
+
+          /* ------------------------------------------------ picture */
+          var pic = el("section", "panel");
+          pic.appendChild(head2("Profile picture", "Optional. A chosen image is uploaded to the shop's own Supabase Storage bucket and linked to your login."));
+          var picRow = el("div", "row");
+          picRow.style.gap = "16px";
+          picRow.appendChild(A.avatar(u, "avatar-lg"));
+
+          var picFile = el("input");
+          picFile.type = "file";
+          picFile.id = "p_photo";
+          picFile.accept = IMAGE_TYPES.join(",");
+          picFile.style.display = "none";
+
+          var chooseBtn = el("button", "btn btn-ghost");
+          chooseBtn.type = "button";
+          chooseBtn.appendChild(A.icon("upload"));
+          chooseBtn.appendChild(el("span", null, "Choose image"));
+          var removeBtn = el("button", "btn btn-ghost btn-sm", "Remove picture");
+          removeBtn.type = "button";
+          removeBtn.hidden = !meta.avatar_url;
+
+          var picMsg = el("span", "muted small", "");
+          var picBar = el("div", "bar");
+          var picFill = el("div", "fill");
+          picBar.appendChild(picFill);
+          picBar.hidden = true;
+
+          pic.appendChild(picRow);
+          var picControls = el("div", "img-actions");
+          picControls.appendChild(chooseBtn);
+          picControls.appendChild(removeBtn);
+          picControls.appendChild(picMsg);
+          pic.appendChild(picControls);
+          pic.appendChild(picBar);
+          pic.appendChild(el("p", "hint", "JPEG, PNG or WebP up to " + bytes(S.maxImageBytes) +
+            ". Replacing a picture leaves the previous file in storage - Supabase does not delete it by itself, and no product ever shows it."));
+          pic.appendChild(picFile);
+          host.appendChild(pic);
+
+          chooseBtn.addEventListener("click", function () { picFile.click(); });
+
+          picFile.addEventListener("change", function () {
+            var file = picFile.files && picFile.files[0];
+            if (!file) return;
+            if (IMAGE_TYPES.indexOf(file.type) === -1) {
+              picMsg.textContent = "That file is a " + (file.type || "unknown type") + " - choose a JPEG, PNG or WebP.";
+              picFile.value = "";
+              return;
+            }
+            if (file.size > S.maxImageBytes) {
+              picMsg.textContent = "That image is " + bytes(file.size) + " - the limit is " + bytes(S.maxImageBytes) + ".";
+              picFile.value = "";
+              return;
+            }
+            A.busy(chooseBtn, true);
+            picBar.hidden = false;
+            picBar.classList.add("indeterminate");
+            picMsg.textContent = "Uploading " + file.name + "...";
+            S.uploadImage(file, function (pct) {
+              picBar.classList.remove("indeterminate");
+              picFill.style.width = Math.round(Math.max(0, Math.min(1, pct)) * 100) + "%";
+              picMsg.textContent = "Uploading " + file.name + " - " + Math.round(pct * 100) + "%";
+            }).then(function (url) {
+              picMsg.textContent = "Uploaded - linking it to your account...";
+              return S.updateAccount({ display_name: (user.user_metadata || {}).display_name || "", avatar_url: url });
+            }).then(function (updated) {
+              if (updated && updated.id) user = updated;
+              A.setShellUser(user);
+              picFile.value = "";
+              A.toast("Profile picture updated.", "success");
+              paint(user);
+            }, function (err) {
+              if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+              picMsg.textContent = (err && err.message) || "The picture could not be saved.";
+              A.toast(picMsg.textContent, "error");
+            }).finally(function () {
+              A.busy(chooseBtn, false);
+              picBar.hidden = true;
+              picBar.classList.remove("indeterminate");
+              picFill.style.width = "0";
+            });
+          });
+
+          removeBtn.addEventListener("click", function () {
+            A.busy(removeBtn, true);
+            S.updateAccount({
+              display_name: (user.user_metadata || {}).display_name || "",
+              avatar_url: ""
+            }).then(function (updated) {
+              if (updated && updated.id) user = updated;
+              A.setShellUser(user);
+              A.toast("Picture removed - your initials are used instead.", "success");
+              paint(user);
+            }, function (err) {
+              if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+              A.toast((err && err.message) || "The picture could not be removed.", "error");
+            }).finally(function () {
+              A.busy(removeBtn, false);
+            });
+          });
+
+          /* ------------------------------------------------ password */
+          var pass = el("section", "panel");
+          pass.appendChild(head2("Change password", "Supabase checks the change against your live session, so no password is ever sent for verification."));
+          var passGrid = el("div", "form-grid");
+
+          var newIn = el("input");
+          newIn.type = "password";
+          newIn.id = "p_new";
+          newIn.maxLength = 200;
+          newIn.autocomplete = "new-password";
+          newIn.placeholder = "At least 8 characters";
+          passGrid.appendChild(fieldNode("p_new", "New password", newIn, null, null));
+
+          var againIn = el("input");
+          againIn.type = "password";
+          againIn.id = "p_again";
+          againIn.maxLength = 200;
+          againIn.autocomplete = "new-password";
+          passGrid.appendChild(fieldNode("p_again", "Repeat new password", againIn, null, null));
+
+          pass.appendChild(passGrid);
+
+          var passRow = el("div", "row");
+          passRow.style.marginTop = "16px";
+          var passBtn = el("button", "btn btn-primary");
+          passBtn.type = "button";
+          passBtn.appendChild(A.icon("key"));
+          passBtn.appendChild(el("span", null, "Change password"));
+          var passNote = el("span", "muted small", "");
+          passRow.appendChild(passBtn);
+          passRow.appendChild(passNote);
+          pass.appendChild(passRow);
+          pass.appendChild(el("p", "hint", "This browser keeps working until you sign out. Every other device will need the new password the next time it tries to sign in."));
+          host.appendChild(pass);
+
+          newIn.addEventListener("input", function () { setErr("p_new", ""); });
+          againIn.addEventListener("input", function () { setErr("p_again", ""); });
+
+          passBtn.addEventListener("click", function () {
+            var a = newIn.value;
+            var b = againIn.value;
+            var ok = true;
+            if (a.length < 8) { setErr("p_new", "Use at least 8 characters. A short phrase you can remember beats a symbol soup."); ok = false; }
+            else setErr("p_new", "");
+            if (b !== a) { setErr("p_again", "The two passwords do not match."); ok = false; }
+            else setErr("p_again", "");
+            if (!ok) return;
+
+            A.busy(passBtn, true);
+            passNote.textContent = "Sending...";
+            S.changePassword(a).then(function () {
+              passNote.textContent = "";
+              newIn.value = "";
+              againIn.value = "";
+              A.toast("Password changed. Use it the next time you sign in.", "success");
+            }, function (err) {
+              passNote.textContent = "";
+              if (err && err.code === "signed_out") { window.location.replace("login.html"); return; }
+              A.toast((err && err.message) || "The password could not be changed.", "error");
+            }).finally(function () {
+              A.busy(passBtn, false);
+            });
+          });
+
+          /* ------------------------------------------------ session */
+          var out = el("section", "panel");
+          out.appendChild(head2("This device", "Signing out clears the saved session from this browser only."));
+          var outRow = el("div", "row");
+          var outBtn = el("button", "btn btn-ghost");
+          outBtn.type = "button";
+          outBtn.appendChild(A.icon("logout"));
+          outBtn.appendChild(el("span", null, "Log out of this browser"));
+          outBtn.addEventListener("click", function () { A.logOut(outBtn); });
+          outRow.appendChild(outBtn);
+          out.appendChild(outRow);
+          host.appendChild(out);
+        }
+
+        /* ------------------------------------------------------------ *
+         * Small builders shared by the cards
+         * ------------------------------------------------------------ */
+        function head2(title, desc) {
+          var h = el("div", "page-head tight");
+          h.appendChild(el("h2", null, title));
+          if (desc) h.appendChild(el("p", null, desc));
+          h.style.marginBottom = "14px";
+          return h;
+        }
+
+        function fieldNode(inputId, labelText, control, hint, errText) {
+          var f = el("div", "field");
+          var lab = el("label", null, labelText);
+          lab.htmlFor = inputId;
+          f.appendChild(lab);
+          f.appendChild(control);
+          if (hint) f.appendChild(el("span", "hint", hint));
+          f.appendChild(el("span", "err", errText || ""));
+          f.dataset.input = inputId;
+          return f;
+        }
+
+        function setErr(inputId, message) {
+          var f = host.querySelector('[data-input="' + inputId + '"]');
+          if (!f) return;
+          var e = f.querySelector(".err");
+          if (e) e.textContent = message || "";
+          f.classList.toggle("bad", !!message);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -3,45 +3,93 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
   <meta name="robots" content="noindex">
   <title>FIXON admin sign in</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-  <div class="auth-wrap">
-    <form class="auth-card" id="loginForm" novalidate>
-      <div class="brand">FIXON<small>Admin dashboard</small></div>
-      <h2>Sign in</h2>
+  <div class="login-wrap">
+    <!-- Left: the brand panel. Pure CSS - gradient, blurred discs, a ring and
+         a faded grid - so a login screen never waits on an image. -->
+    <section class="login-art" aria-hidden="true">
+      <span class="blob b1"></span>
+      <span class="blob b2"></span>
+      <span class="ring"></span>
+      <span class="grid-lines"></span>
 
-      <div id="loginNotice"></div>
-
-      <div class="field" id="emailField">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" autocomplete="username" required>
-        <span class="err">Enter the email address for this admin account.</span>
+      <div class="login-mark">
+        <img src="../favicon.svg" alt="">
+        <div>
+          <b>FIXON</b>
+          <small>Admin dashboard</small>
+        </div>
       </div>
 
-      <div class="field" id="passwordField">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required>
-        <span class="err">Enter your password.</span>
+      <div class="login-copy">
+        <h2>Run the shop from one screen.</h2>
+        <p>Everything the customers see lives here: the list, the prices, the stock and the photos. Change a row, and the storefront picks it up on its next refresh.</p>
+        <ul class="login-feats">
+          <li>Add a product with its photo in one form - the picture you pick is the picture the shop shows.</li>
+          <li>Search, filter, sort and hide products without touching a spreadsheet.</li>
+          <li>Every read and write is checked by Supabase Row Level Security, not just by this page.</li>
+        </ul>
       </div>
 
-      <button class="btn btn-primary btn-block" type="submit" id="loginBtn">Sign in</button>
-
-      <div class="auth-links">
-        <a href="#" id="forgotLink">Forgot password?</a>
-        <a href="../">Back to the shop</a>
+      <div class="login-foot">
+        <span>Catalog and login: Supabase</span>
+        <span>Orders go to WhatsApp</span>
       </div>
+    </section>
 
-      <div class="field" id="resetField" hidden>
-        <label for="resetEmail">Reset email</label>
-        <input type="email" id="resetEmail" autocomplete="username">
-        <span class="hint">A reset link is emailed to admin addresses only. This form never says whether an address exists.</span>
-      </div>
-      <button class="btn btn-primary btn-block" type="button" id="resetBtn" hidden>Send reset link</button>
-    </form>
+    <!-- Right: the form. -->
+    <div class="login-pane">
+      <form class="login-card" id="loginForm" novalidate>
+        <div class="brand-mobile"><img src="../favicon.svg" alt="">FIXON</div>
+
+        <div class="card">
+          <h1>Welcome back</h1>
+          <p class="lede">Sign in with the admin address your project owner set up.</p>
+
+          <div id="loginNotice" role="status" aria-live="polite"></div>
+
+          <div class="field" id="emailField">
+            <label for="email">Email address</label>
+            <input type="email" id="email" name="email" autocomplete="username" required>
+            <span class="err">Enter the email address for this admin account.</span>
+          </div>
+
+          <div class="field" id="passwordField">
+            <label for="password">Password</label>
+            <div class="input-wrap">
+              <input type="password" id="password" name="password" autocomplete="current-password" required>
+              <button class="peek" type="button" id="peekBtn" aria-pressed="false" aria-controls="password">Show</button>
+            </div>
+            <span class="err">Enter your password.</span>
+          </div>
+
+          <div class="spread">
+            <label class="remember" for="remember">
+              <input type="checkbox" id="remember" name="remember" checked>
+              Keep me signed in
+            </label>
+            <a href="#" id="forgotLink">Forgot password?</a>
+          </div>
+
+          <button class="btn btn-primary btn-block btn-lg" type="submit" id="loginBtn">Sign in</button>
+
+          <div class="field" id="resetField" hidden>
+            <label for="resetEmail">Reset email</label>
+            <input type="email" id="resetEmail" autocomplete="username">
+            <span class="hint">A reset link is emailed to admin addresses only. This form never says whether an address exists.</span>
+          </div>
+          <button class="btn btn-ghost btn-block" type="button" id="resetBtn" hidden>Send reset link</button>
+
+          <p class="form-note">Unticked, "keep me signed in" lasts only for this browser tab.</p>
+        </div>
+      </form>
+    </div>
   </div>
 
   <div id="toasts"></div>
@@ -60,24 +108,50 @@
       var notice = document.getElementById("loginNotice");
       var email = document.getElementById("email");
       var password = document.getElementById("password");
+      var remember = document.getElementById("remember");
       var loginBtn = document.getElementById("loginBtn");
+      var peekBtn = document.getElementById("peekBtn");
       var resetField = document.getElementById("resetField");
       var resetEmail = document.getElementById("resetEmail");
       var resetBtn = document.getElementById("resetBtn");
       var forgotLink = document.getElementById("forgotLink");
 
+      function setNotice(cls, text) {
+        notice.textContent = "";
+        if (!text) return;
+        var box = A.el("div", "notice " + cls);
+        box.appendChild(A.icon(cls === "error" ? "x-circle" : cls === "ok" ? "check-circle" : "alert"));
+        box.appendChild(A.el("span", null, text));
+        notice.appendChild(box);
+      }
+
       if (!S.configured()) {
-        notice.appendChild(A.el("div", "notice warn",
-          "Supabase is not configured (js/config.js -> FIXON.supabase), so there is nothing to sign in to yet."));
+        setNotice("warn", "Supabase is not configured (js/config.js -> FIXON.supabase), so there is nothing to sign in to yet.");
         loginBtn.disabled = true;
         forgotLink.style.display = "none";
         return;
       }
 
-      function setNotice(cls, text) {
-        notice.textContent = "";
-        if (text) notice.appendChild(A.el("div", "notice " + cls, text));
+      /* The email and password fields are the only two that can be wrong
+         before a request, so they are checked here rather than by Supabase. */
+      function mark(id, bad) {
+        document.getElementById(id).classList.toggle("bad", !!bad);
       }
+      function validEmail(value) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(value).trim()); }
+
+      email.addEventListener("input", function () { mark("emailField", false); });
+      password.addEventListener("input", function () { mark("passwordField", false); });
+      email.addEventListener("blur", function () {
+        mark("emailField", email.value.trim() && !validEmail(email.value));
+      });
+
+      peekBtn.addEventListener("click", function () {
+        var shown = password.type === "text";
+        password.type = shown ? "password" : "text";
+        peekBtn.textContent = shown ? "Show" : "Hide";
+        peekBtn.setAttribute("aria-pressed", shown ? "false" : "true");
+        password.focus();
+      });
 
       function goAfterLogin() {
         var next = new URLSearchParams(window.location.search).get("next") || "";
@@ -88,10 +162,13 @@
         window.location.replace(safe);
       }
 
-      /* A password-reset link can land here carrying tokens in the URL hash. */
+      /* A password-reset link can land here carrying tokens in the URL hash.
+         The link only proves who you are - it does not carry a new password,
+         so the recovery session is taken to the profile page, which is where
+         the password is actually changed. */
       S.captureRecovery().then(function (recovered) {
         if (recovered) {
-          setNotice("ok", "Password updated. Sign in with the new password.");
+          window.location.replace("profile.html#new-password");
           return;
         }
         if (S.currentSession) {
@@ -105,26 +182,25 @@
         e.preventDefault();
         setNotice("", "");
         var ok = true;
-        [["emailField", email], ["passwordField", password]].forEach(function (pair) {
-          var field = document.getElementById(pair[0]);
-          var bad = !pair[1].value.trim();
-          field.classList.toggle("bad", bad);
-          if (bad) ok = false;
-        });
-        if (!ok) return;
+        if (!email.value.trim()) { mark("emailField", true); ok = false; }
+        else if (!validEmail(email.value)) { mark("emailField", true); ok = false; }
+        if (!password.value) { mark("passwordField", true); ok = false; }
+        if (!ok) {
+          setNotice("error", "Fill in both the email address and the password.");
+          return;
+        }
 
-        loginBtn.disabled = true;
-        loginBtn.textContent = "Signing in...";
-        S.signIn(email.value, password.value).then(function () {
+        A.busy(loginBtn, true);
+        S.signIn(email.value, password.value, remember.checked).then(function () {
           goAfterLogin();
         }, function (err) {
-          loginBtn.disabled = false;
-          loginBtn.textContent = "Sign in";
+          A.busy(loginBtn, false);
           setNotice("error", err && err.message ? err.message : "Sign-in failed.");
           if (err && err.code === "not_admin") {
             /* The one case worth extra words: the password was right. */
             setNotice("error", "That account signed in correctly but is not on the FIXON admin list, so the dashboard stays closed. Ask the project owner to add it (supabase/SETUP.sql, section 6).");
           }
+          if (err && err.code === "network") password.select();
         });
       });
 
@@ -141,12 +217,11 @@
 
       resetBtn.addEventListener("click", function () {
         var value = resetEmail.value.trim();
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+        if (!validEmail(value)) {
           setNotice("error", "Enter the email address for this admin account first.");
           return;
         }
-        resetBtn.disabled = true;
-        resetBtn.textContent = "Sending...";
+        A.busy(resetBtn, true);
         var here = window.location.origin + window.location.pathname;
         S.resetPassword(value, here).then(function () {
           setNotice("ok", "If that address belongs to an admin account, a reset link is on its way. Check the inbox and the spam folder.");
@@ -155,8 +230,7 @@
         }, function (err) {
           setNotice("error", (err && err.message) || "The reset request could not be sent.");
         }).finally(function () {
-          resetBtn.disabled = false;
-          resetBtn.textContent = "Send reset link";
+          A.busy(resetBtn, false);
         });
       });
     })();

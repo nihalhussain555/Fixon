@@ -110,7 +110,7 @@
   /* ------------------------------------------------------------------ *
    * Session storage
    * --------------------------------------------------------------------------
-   * The JWT lives in localStorage between visits so the dashboard does not
+   * The JWT lives in the browser between page loads so the dashboard does not
    * ask for a password on every page. Two rules:
    *   - The session is written ONLY after admins-select confirms the signer
    *     is an admin, so a non-admin browser holds no token that scripts could
@@ -118,25 +118,62 @@
    *     this just keeps the client honest about what it has.)
    *   - The token is refreshed when the stored one is older than an hour; if
    *     the refresh fails the session is dropped and the admin signs in again.
+   *
+   * Two stores share one key, because "remember me" has to mean something:
+   * localStorage keeps the dashboard open past a closed tab, sessionStorage
+   * is thrown away by the browser when the tab closes. A refresh writes back
+   * into whichever one actually holds the session.
    * ------------------------------------------------------------------ */
   var SESSION_KEY = "fixon_admin_session_v1";
+  var STORES = ["localStorage", "sessionStorage"];
 
-  function readSession() {
+  function store(name) {
     try {
-      var raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return null;
-      var s = JSON.parse(raw);
-      if (!s || typeof s.access_token !== "string" || !s.access_token) return null;
-      return s;
+      var s = window[name];
+      return s && typeof s.getItem === "function" ? s : null;
     } catch (e) { return null; }
   }
 
-  function writeSession(s) {
-    try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ }
+  /* { json, name } for whichever store holds a usable session, else null. */
+  function readRaw() {
+    for (var i = 0; i < STORES.length; i++) {
+      var s = store(STORES[i]);
+      if (!s) continue;
+      var raw = null;
+      try { raw = s.getItem(SESSION_KEY); } catch (e) { continue; }
+      if (!raw) continue;
+      try {
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.access_token === "string" && parsed.access_token) {
+          return { json: parsed, name: STORES[i] };
+        }
+      } catch (e) { /* unreadable: treat it as signed out */ }
+    }
+    return null;
+  }
+
+  function readSession() {
+    var found = readRaw();
+    return found ? found.json : null;
+  }
+
+  /* persistent === false is the only way in to sessionStorage; anything else
+     (including undefined) is the remembered, cross-tab choice. */
+  function writeSession(s, persistent) {
+    var pick = persistent === false ? "sessionStorage" : "localStorage";
+    var other = persistent === false ? "localStorage" : "sessionStorage";
+    var t = store(pick);
+    if (t) { try { t.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ } }
+    var o = store(other);
+    if (o) { try { o.removeItem(SESSION_KEY); } catch (e) { /* nothing to clear */ } }
   }
 
   function clearSession() {
-    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* nothing to clear */ }
+    STORES.forEach(function (name) {
+      var s = store(name);
+      if (!s) return;
+      try { s.removeItem(SESSION_KEY); } catch (e) { /* nothing to clear */ }
+    });
   }
 
   function accessToken() {
@@ -163,7 +200,8 @@
 
   function refreshSession() {
     if (refreshing) return refreshing;
-    var s = readSession();
+    var found = readRaw();
+    var s = found ? found.json : null;
     if (!s || !s.refresh_token) return Promise.resolve(s);
     if (!needsRefresh(s)) return Promise.resolve(s);
 
@@ -189,7 +227,7 @@
          not glide through on a freshly minted token. */
       return verifyAdmin(next).then(function (ok) {
         if (!ok) { clearSession(); return null; }
-        writeSession(next);
+        writeSession(next, found.name !== "sessionStorage");
         return next;
       }, function () { clearSession(); return null; });
     }, function () {
@@ -204,7 +242,9 @@
   /* ------------------------------------------------------------------ *
    * Auth
    * ------------------------------------------------------------------ */
-  function signIn(email, password) {
+  /* remember === false keeps the token in sessionStorage only, so closing the
+     tab ends the admin session. Anything else is the remembered choice. */
+  function signIn(email, password, remember) {
     if (!configured()) return Promise.reject(configError());
     return request(baseUrl() + "/auth/v1/token?grant_type=password", {
       method: "POST",
@@ -239,7 +279,7 @@
             throw err;
           });
         }
-        writeSession(session);
+        writeSession(session, remember);
         return session;
       });
     });
@@ -318,6 +358,85 @@
         return session;
       });
     }, function () { return null; });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The admin's own account (Auth, not the products table)
+   * --------------------------------------------------------------------------
+   * /auth/v1/user is the endpoint that speaks about the signed-in user, so the
+   * profile page reads and writes only what it is allowed to: the email GoTrue
+   * already holds, the two keys this dashboard keeps in user_metadata, and the
+   * password. A bearer token can only ever describe its own user, and no token
+   * or user id is handed back to a page for display.
+   * ------------------------------------------------------------------ */
+  function authUser(method, body) {
+    return currentSession().then(function (s) {
+      if (!s) { var e = new Error("Your admin session expired - sign in again."); e.code = "signed_out"; throw e; }
+      return request(baseUrl() + "/auth/v1/user", {
+        method: method,
+        headers: {
+          apikey: anonKey(),
+          Authorization: "Bearer " + s.access_token,
+          "Content-Type": "application/json"
+        },
+        body: body ? JSON.stringify(body) : undefined
+      }).then(function (res) {
+        if (res.status === 401 || res.status === 403) {
+          /* Not "wrong password": the token was accepted for the call and
+             refused for the change, which is what Supabase answers when a
+             sensitive field wants a sign-in that is fresher than this one. */
+          if (res.data && /reauth/i.test(String(res.data.message || res.data.error || ""))) {
+            var re = new Error("Supabase wants a fresh sign-in before the password changes. Log out, log in again, then try once more.");
+            re.code = "reauth";
+            throw re;
+          }
+          var out = new Error("Not authorised - sign in again.");
+          out.code = "signed_out";
+          throw out;
+        }
+        if (!res.ok) throw apiError(res, "The account could not be updated.");
+        return res.data && res.data.user ? res.data.user : res.data;
+      });
+    });
+  }
+
+  function currentUser() {
+    return authUser("GET", null);
+  }
+
+  /* Only these two metadata keys are ever written, so anything the owner set
+     on the account by other means stays exactly as it was. */
+  function updateAccount(data) {
+    var clean = {};
+    Object.keys(data || {}).forEach(function (key) {
+      if (key === "display_name") clean.display_name = cleanText(data[key], 60);
+      else if (key === "avatar_url") clean.avatar_url = String(data[key] || "").trim().slice(0, 500);
+    });
+    return authUser("PUT", { data: clean }).then(function (user) {
+      rememberUser(user);
+      return user;
+    });
+  }
+
+  /* Supabase takes the new password on its own - the current one is never
+     sent anywhere. Until the admin signs in again this browser keeps working
+     with the session it already has. */
+  function changePassword(password) {
+    var value = String(password || "");
+    if (value.length < 8) return Promise.reject(new Error("Choose a password of at least 8 characters."));
+    return authUser("PUT", { password: value }).then(function (user) {
+      rememberUser(user);
+      return user;
+    });
+  }
+
+  /* Keep the stored session's copy of the user in step with the account, so
+     the sidebar name and picture refresh without another sign-in. */
+  function rememberUser(user) {
+    var found = readRaw();
+    if (!found || !user || !user.id) return;
+    found.json.user = user;
+    writeSession(found.json, found.name !== "sessionStorage");
   }
 
   /* ------------------------------------------------------------------ *
@@ -528,33 +647,70 @@
     return "p-" + stamp + "-" + rand + "." + UPLOAD_TYPES[type];
   }
 
-  /* Returns the public URL stored into products.image_url. */
-  function uploadImage(file) {
+  /* Returns the public URL stored into products.image_url.
+     -----------------------------------------------------------------
+     XMLHttpRequest rather than fetch for this one call because it is the
+     request the admin actually watches: upload.onprogress counts real bytes,
+     so a 4 MB photo on a shop connection can show a bar that moves instead of
+     a spinner that lies about being nearly finished. The contract is the
+     original one - validate, generate a fresh object name, resolve the public
+     address, clear the session and report signed_out when the token fails. */
+  function uploadImage(file, onProgress) {
     return currentSession().then(function (s) {
       if (!s) { var e0 = new Error("Your admin session expired - sign in again."); e0.code = "signed_out"; throw e0; }
       return validateImage(file).then(function (img) {
         var name = objectName(img.type);
-        return request(
-          baseUrl() + "/storage/v1/object/" + STORAGE_BUCKET + "/" + name + "?upsert=false",
-          {
-            method: "POST",
-            headers: {
-              apikey: anonKey(),
-              Authorization: "Bearer " + s.access_token,
-              "content-type": img.type,
-              "x-upsert": "false"
-            },
-            body: img
-          }
-        ).then(function (res) {
-          if (!res.ok) {
-            if (res.status === 401 || res.status === 403) { clearSession(); throw new Error("Not authorised to upload images - sign in again."); }
-            if (res.status === 409) throw new Error("An image with that name already exists; press upload again - it uses a fresh name.");
-            throw apiError(res, "The image upload failed.");
-          }
+        return sendImage(name, img, s.access_token, onProgress).then(function () {
           return baseUrl() + "/storage/v1/object/public/" + STORAGE_BUCKET + "/" + name;
         });
       });
+    });
+  }
+
+  function sendImage(name, file, token, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      try { xhr.open("POST", baseUrl() + "/storage/v1/object/" + STORAGE_BUCKET + "/" + encodeURIComponent(name) + "?upsert=false"); }
+      catch (e) { reject(new Error("This browser cannot start the upload.")); return; }
+      xhr.timeout = REQUEST_TIMEOUT;
+      xhr.setRequestHeader("apikey", anonKey());
+      xhr.setRequestHeader("Authorization", "Bearer " + token);
+      xhr.setRequestHeader("content-type", file.type);
+      xhr.setRequestHeader("x-upsert", "false");
+
+      if (xhr.upload && typeof onProgress === "function") {
+        xhr.upload.addEventListener("progress", function (e) {
+          if (!e.lengthComputable) return;
+          onProgress(Math.max(0, Math.min(1, e.total ? e.loaded / e.total : 0)), e.loaded, e.total);
+        });
+      }
+
+      function fail(message, code) {
+        var err = new Error(message);
+        if (code) err.code = code;
+        reject(err);
+      }
+
+      xhr.addEventListener("load", function () {
+        var status = xhr.status;
+        if (status >= 200 && status < 300) { resolve(true); return; }
+        var data = null;
+        try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; } catch (e) { data = { message: xhr.responseText }; }
+        if (status === 401 || status === 403) {
+          clearSession();
+          fail("Not authorised to upload images - sign in again.", "signed_out");
+          return;
+        }
+        if (status === 409) {
+          fail("An image with that name already exists; press upload again - it uses a fresh name.");
+          return;
+        }
+        fail((data && (data.message || data.error)) || "The image upload failed.", data && data.code ? data.code : "storage");
+      });
+      xhr.addEventListener("timeout", function () { fail("The upload timed out. Check the connection and try again.", "network"); });
+      xhr.addEventListener("error", function () { fail("Could not reach Supabase. Check the project URL and your connection.", "network"); });
+      xhr.addEventListener("abort", function () { fail("The upload was cancelled.", "aborted"); });
+      xhr.send(file);
     });
   }
 
@@ -637,6 +793,9 @@
     currentSession: currentSession,
     resetPassword: resetPassword,
     captureRecovery: captureRecovery,
+    currentUser: currentUser,
+    updateAccount: updateAccount,
+    changePassword: changePassword,
     activeProducts: activeProducts,
     listProducts: listProducts,
     getProduct: getProduct,

@@ -59,7 +59,7 @@ js/finder.js          brands.html brand tiles
 js/contact.js         contact composer
 js/theme.js           light/dark, remembered per device (light is the default)
 js/app.js             hydration, nav, reveal, toasts, photo fallbacks
-admin/                the dashboard: sign-in, product list, add and edit rows
+admin/                the dashboard (see "The admin dashboard" below)
 supabase/SETUP.sql    the one-pass database setup (tables, RLS, bucket)
 images/               covers, accessories, brands, banners
 images/products/      drop a photo here and type only its file name in the
@@ -122,6 +122,124 @@ Anything that is not https or a same-site path is rejected. When a stored
 photo cannot be loaded, the card and the product view fall back to **that
 product's own category illustration**, never a photo from another category,
 and the product view labels it as an illustration.
+
+## The admin dashboard
+
+`admin/` is a set of plain pages, not an app: no framework, no bundler, no
+server code. Every page links `admin.css` and loads `js/config.js`,
+`js/supabase.js` and `admin.js`; the two product forms add `admin-form.js`,
+and each page's own inline script holds just that page's rendering.
+
+```
+admin/index.html        an instant meta-refresh into dashboard.html
+admin/login.html        sign in, "remember me", forgot password
+admin/dashboard.html    the four counts, quick actions, recent rows, latest changes
+admin/products.html     the list: search, filters, sort, pagination, edit, delete
+admin/add-product.html  new row
+admin/edit-product.html existing row, loaded by ?id=<uuid>
+admin/profile.html      display name, picture, password
+admin/admin.css         the design system (teal on slate, light and dark)
+admin/admin.js          the shared shell: session guard, sidebar, toasts, table parts
+admin/admin-form.js     the add/edit form, validation and the upload-on-save path
+```
+
+**Signing in is Supabase's, unchanged.** `login.html` calls
+`signIn(email, password, remember)` from `js/supabase.js`, which is the
+password grant on `/auth/v1/token`. Being allowed in is not a flag in a file:
+after the session exists the page reads the `admins` table, and a row for that
+user id is what makes the dashboard load. An email that exists but is not in
+`admins` is told so. Nothing about the JWT, the user id or the key is printed
+on screen — the profile page shows the address, the display name and the
+account creation date, and that is all.
+
+- **Remember me** decides where the session is kept: ticked writes it to
+  `localStorage` so it survives closing the tab, unticked to `sessionStorage`
+  so it dies with it. The key is `fixon_admin_session_v1` either way. A token
+  inside ten minutes of its own expiry is refreshed through
+  `/auth/v1/token?grant_type=refresh_token`, and the refresh **re-checks the
+  `admins` row** before storing the new token, so an admin removed from that
+  table cannot glide forward on a fresh one. A refused refresh clears the
+  session; a network failure does not (the page's own request reports it).
+- **Forgot password** posts the address to `/auth/v1/recover` with the login
+  page as `redirect_to`, and says only "if that address belongs to an admin
+  account, a reset link is on its way" — the form never reveals whether an
+  address exists. A recovery link carries a token in its URL hash and **sets no
+  password by itself**: `login.html` reads that hash (`captureRecovery`),
+  erases it from the address bar, re-checks the `admins` row, and forwards to
+  `profile.html#new-password`, which focuses the new-password field and explains
+  what to press. For the mail to land where this expects it, the project's
+  **Site URL** and **Redirect URLs** (Authentication → URL Configuration in
+  Supabase) have to name the deployed `admin/login.html`.
+- Every page runs the same guard: no session → `login.html`, and the page you
+  wanted comes back through `?next=` after signing in. A REST call answered
+  401 or 403 clears the session and raises `signed_out`, which each page turns
+  into a redirect to the login page - better than leaving a form full of
+  half-saved values on screen.
+
+**Look and feel.** One token set drives it: `#0D9488` teal for actions,
+`#F8FAFC` page on light and `#0f172a` on dark, `#1E293B` text, white cards with
+a soft shadow and a 16px radius (`--radius`; 10px and 8px for the smaller
+parts). The sun/moon button in the top bar flips `data-theme` on `<html>` and
+remembers the choice in `localStorage`; a first visit with nothing saved
+follows the device's own `prefers-color-scheme`. Nav items, buttons, fields,
+pills, cards and table rows carry a 160 ms colour/shadow transition, so the
+theme switch animates rather than snapping. Icons are inlined SVG from a small
+registry in `admin.js` - no icon font, no CDN, nothing to fetch before the
+first paint.
+
+Widths, all in `admin.css`: the sidebar is a fixed column down to 820px and
+becomes a hamburger drawer with a scrim below it (the button is
+`aria-expanded`; Escape and a click outside close it, and the active page is
+marked `aria-current="page"`). Forms and two-column grids go single column at
+980px and 1080px, the login's art panel is hidden there in favour of a compact
+brand header, product tables turn into stacked cards at 760px using each cell's
+`data-label` as its heading, and the stat row drops from four tiles to two at
+820px and one at 560px.
+
+**Dashboard counts** come from one `listProducts()` read, all four derived from
+those rows so they cannot disagree with the list page: total, active,
+out-of-stock and added in the last seven days. An empty stock does **not**
+count as out of stock — `js/catalog.js` treats `null` as "no quantity is being
+claimed", so the dashboard uses the same rule through `A.isOutOfStock()`.
+There is no activity log table in this schema and the schema is not being
+widened for a panel, so "Latest changes" is honestly derived from each row's
+own `created_at`/`updated_at` and labelled as that.
+
+**Manage products** is search across name, description and category, a category
+filter, a status filter
+(any / active only / hidden only / out of stock / in stock), four sorts
+(newest, oldest, price low→high, price high→low) and a pager that appears for
+any list over ten rows, so the per-page choice stays reachable at 100. The
+filters live in the page, not the URL — a filtered list is not a link you can
+hand to someone else. Editing loads `edit-product.html?id=<uuid>`; the row's
+current photo is shown and stays unless you pick another one. Deleting asks for
+confirmation in a modal — never a native `confirm()` — and then removes the
+product's picture from the bucket when no other row points at the same file;
+when one does, or when the old photo was never a bucket file, the message says
+which of those happened instead of implying a cleanup that did not run.
+
+**Adding a product** takes the photo by drag-and-drop or the Browse button,
+shows the preview with the file's name and size, validates the type
+(JPEG/PNG/WebP) and the size limit before anything is sent, and draws a real
+progress bar from the upload's byte events. **The upload happens as part of
+Save**: the file goes to the existing `product-images` bucket, the address
+Supabase returns is stored in `image_url`, and if the upload fails the save is
+stopped instead of creating a product whose photo is still on your disk. The
+same bucket, the same path, no second storage location.
+
+**Profile** edits `display_name` in `raw_user_meta_data` through
+`PUT /auth/v1/user`, uploads or removes the avatar (the avatar is a bucket
+file, its address is kept in that metadata), and changes the password with the
+same endpoint. Only the new password is sent — Supabase authenticates the
+request with the access token this browser already holds, so the current
+password is never typed or stored. The session in front of you keeps working
+after the change; every other device has to sign in with the new one.
+
+Two things the spec asked for that this schema cannot hold, said plainly
+instead of faked: there is **no original/discount price column** on `products`
+(so no strike-through price in the dashboard, and none on the site either),
+and there is **no activity table** (hence the derived list above). Both would
+need a migration, which the constraints rule out.
 
 ## Where the business details live
 

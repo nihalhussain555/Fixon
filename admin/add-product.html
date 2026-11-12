@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f766e">
   <meta name="robots" content="noindex">
   <title>FIXON admin - Add product</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
@@ -20,12 +21,24 @@
       var A = window.fixonAdmin, el = A.el;
 
       A.guard("add", "Add product", function (session, body) {
-        var host = el("section", "panel");
+        var head = el("div", "page-head");
+        head.appendChild(el("h2", null, "One form, one save"));
+        head.appendChild(el("p", null, "Fill in what you know and drop a photo on the image box. Pressing Create product uploads the photo first, then writes the row - so the picture you pick is the picture customers see."));
+        body.appendChild(head);
+
+        /* A brand-new product is a draft until it is saved, so the shop cannot
+           half-show it. */
+        var note = el("div", "notice info");
+        note.appendChild(A.icon("info"));
+        note.appendChild(el("span", null, "Leave \"Active\" ticked to publish straight away, or untick it to save a draft only this dashboard can see."));
+        body.appendChild(note);
+
+        /* The form paints its own cards inside this host, so the host must not
+           be a card itself. */
+        var host = el("div", "stack");
         host.id = "formHost";
         body.appendChild(host);
-        var hint = el("p", null, "A new product appears on the shop as soon as it is created - leave \"Active\" ticked to publish it now, or untick it to save a draft only admins can see.");
-        hint.style.cssText = "color:var(--muted);font-size:.84rem;margin:0;";
-        body.appendChild(hint);
+
         window.fixonAdminForm.start("add", null);
       });
     })();
