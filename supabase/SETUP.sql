@@ -21,6 +21,7 @@ create table if not exists public.products (
   name        text not null check (char_length(name) between 1 and 120),
   description text not null default '' check (char_length(description) <= 800),
   price       numeric check (price is null or (price > 0 and price < 10000000)),
+  discount_percent smallint check (discount_percent is null or (discount_percent between 1 and 95)),
   category    text not null default '' check (char_length(category) <= 60),
   image_url   text not null default '' check (char_length(image_url) <= 500),
   stock       integer check (stock is null or (stock >= 0 and stock <= 100000)),
@@ -33,6 +34,19 @@ create table if not exists public.products (
 
 create index if not exists products_active_idx on public.products (is_active);
 create index if not exists products_category_idx on public.products (lower(category));
+
+-- discount_percent is newer than the table above, and "create table if not
+-- exists" never adds a column to a table that already exists. Run this on a
+-- project set up before discounts existed (it is a no-op on a new one, and the
+-- check only travels with the statement that actually adds the column):
+alter table public.products add column if not exists discount_percent smallint
+  check (discount_percent is null or (discount_percent between 1 and 95));
+
+-- A product's price column keeps holding the shop's LIST price; the number a
+-- customer is charged is worked out from it on every page:
+--   selling = round(price - price * discount_percent / 100)
+-- Nothing is duplicated in the database, so editing a price can never leave a
+-- stale sale figure behind.
 
 -- Keep updated_at honest without triggers the owner has to remember.
 create or replace function public.touch_updated_at()

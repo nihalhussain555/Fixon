@@ -601,6 +601,31 @@
     return symbol + n.toLocaleString("en-IN");
   }
 
+  /* A row's two prices come from the same helper the storefront calls, so the
+     dashboard and the shop cannot end up quoting different figures for one
+     product: price is the list figure, discount_percent is what comes off it. */
+  function saleOf(row) {
+    return window.fixonUtils.saleOf(row ? row.price : null, row ? row.discount_percent : null);
+  }
+
+  function salePrice(row) {
+    return saleOf(row).price;
+  }
+
+  function discountNote(row) {
+    var sale = saleOf(row);
+    if (!sale.percent) return null;
+    var line = el("span", "discount-note");
+    line.appendChild(el("b", null, money(sale.price)));
+    /* Spacing is done with CSS margins, so without these hidden words a
+       screen reader runs all three figures into one number. */
+    line.appendChild(el("span", "sr-only", " was "));
+    line.appendChild(el("s", null, money(sale.base)));
+    line.appendChild(el("span", "sr-only", ", "));
+    line.appendChild(el("em", null, sale.percent + "% off"));
+    return line;
+  }
+
   /* Products arrive newest-first from Supabase; the dashboard wants both a
      date and a stable id, so the display helpers sit here once. */
   function fmtDate(iso) {
@@ -644,6 +669,8 @@
     else box.appendChild(el("span", "pill on", "Active"));
     if (isOutOfStock(row)) box.appendChild(el("span", "pill out", "Out of stock"));
     if (row.featured) box.appendChild(el("span", "pill info", "Featured"));
+    var offer = saleOf(row);
+    if (offer.percent) box.appendChild(el("span", "pill sale", offer.percent + "% off"));
     return box;
   }
 
@@ -672,6 +699,8 @@
     logOut: logOut,
     categoryLabel: categoryLabel,
     money: money,
+    salePrice: salePrice,
+    discountNote: discountNote,
     fmtDate: fmtDate,
     fmtDateTime: fmtDateTime,
     timeAgo: timeAgo,

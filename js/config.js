@@ -20,6 +20,10 @@
  */
 (function () {
   var PLACEHOLDER = /^SET_ME/;
+  /* The ceiling the products table also enforces, so a mistyped 900 cannot
+     turn a price into nothing. Keep it in step with the check in
+     supabase/SETUP.sql section 1. */
+  var DISCOUNT_MAX = 95;
 
   var FIXON = {
     /* ------------------------------------------------------------------ *
@@ -421,6 +425,24 @@
     return FIXON.currencySymbol + n.toLocaleString("en-IN");
   }
 
+  /* A discount is stored as a percentage against the shop's list price, and
+     worked out here in the one place so a card, the details dialog, the order
+     tray, the WhatsApp total and the dashboard can never disagree.
+     A whole-rupee list price rounds to a whole rupee, because a tag reading
+     "₹449.1" is not how this shop quotes; a price with paise keeps two.
+     base/percent come back null when there is no discount to show. */
+  function saleOf(price, percent) {
+    var base = Number(String(price == null ? "" : price).replace(/[^\d.]/g, ""));
+    if (!isFinite(base) || base <= 0) return { price: null, base: null, percent: null };
+    var pct = Number(percent);
+    if (!isFinite(pct) || pct < 1 || pct > DISCOUNT_MAX || Math.floor(pct) !== pct) {
+      return { price: base, base: base, percent: null };
+    }
+    var raw = base - (base * pct) / 100;
+    var value = Math.floor(base) === base ? Math.round(raw) : Math.round(raw * 100) / 100;
+    return { price: value, base: base, percent: pct };
+  }
+
   function brandById(id) {
     var list = FIXON.deviceBrands;
     for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
@@ -476,6 +498,8 @@
     hoursText: hoursText,
     firstConfigured: firstConfigured,
     formatPrice: formatPrice,
+    saleOf: saleOf,
+    discountMax: DISCOUNT_MAX,
     brandById: brandById,
     photoSrc: photoSrc,
     copy: copy

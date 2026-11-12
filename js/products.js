@@ -90,7 +90,10 @@
 
     if (p.price) {
       var price = el("p", "product-price", p.price);
-      if (p.wasLabel) price.appendChild(el("span", "was", p.wasLabel));
+      if (p.wasLabel) {
+        price.appendChild(el("span", "sr-only", " was "));
+        price.appendChild(el("span", "was", p.wasLabel));
+      }
       price.appendChild(el("small", null, "confirm at counter"));
       info.appendChild(price);
     } else {

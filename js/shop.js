@@ -645,6 +645,9 @@
     var lines = ["Product: " + product.name + (fitment ? " (" + fitment + ")" : "")];
     var priceText = product.price
       || (U.isSet(window.FIXON.priceNote) ? window.FIXON.priceNote : "Price on request");
+    if (product.discount && product.wasLabel) {
+      priceText += " (listed at " + product.wasLabel + ", " + product.discount + "% off)";
+    }
     lines.push("Price: " + priceText);
     var category = product.categoryLabel || product.categoryRaw;
     if (category) lines.push("Category: " + category);
@@ -726,8 +729,14 @@
     var priceRow = el("div", "pd-price-row");
     if (product.price) {
       priceRow.appendChild(el("span", "pd-price", product.price));
-      if (product.wasLabel) priceRow.appendChild(el("span", "was", product.wasLabel));
-      if (product.discount) priceRow.appendChild(el("span", "pd-discount", product.discount + "% off"));
+      if (product.wasLabel) {
+        priceRow.appendChild(el("span", "sr-only", " listed at "));
+        priceRow.appendChild(el("span", "was", product.wasLabel));
+      }
+      if (product.discount) {
+        priceRow.appendChild(el("span", "sr-only", ", "));
+        priceRow.appendChild(el("span", "pd-discount", product.discount + "% off"));
+      }
       priceRow.appendChild(el("span", "pd-price-note", "confirm at the counter"));
     } else {
       priceRow.appendChild(el("span", "pd-price is-request",

@@ -83,7 +83,8 @@ the next read, with no deploy.
 | column | what it does |
 |---|---|
 | `name` | required, the card title |
-| `price` | a number; left null the card says "Price on request" |
+| `price` | the list price, a number; left null the card says "Price on request" |
+| `discount_percent` | whole percentage, 1–95, taken off `price` for this item; empty means no offer |
 | `description` | the line under the title, up to 800 characters |
 | `category` | matched against `productCategories` in `js/config.js`; unknown text is kept and shown as written |
 | `image_url` | see below |
@@ -94,6 +95,38 @@ the next read, with no deploy.
 
 **An empty field renders as nothing** — the site never invents a colour, a
 spec, a discount or an availability claim.
+
+### Discounts, and the price a customer is quoted
+
+`price` stays the **list** price. `discount_percent` is the offer on it, and
+the figure the shop quotes is worked out from the two — nothing stores a
+second price that could fall out of step when you edit the first. The one
+place that maths lives is `saleOf()` in `js/config.js`, so a card, the
+product panel, the order tray, the WhatsApp message, the manage list and the
+dashboard all say the same number.
+
+Fill in `Discount %` on the add or edit form and:
+
+- the card gets a `25% OFF` badge, shows the new price and strikes the list
+  price through beside it;
+- the product panel reads "₹362 listed at ₹482, 25% off";
+- the order tray annotates the line — "₹142 each (5% off ₹149)" — and the
+  WhatsApp message spells it out: `Price: ₹142 (listed at ₹149, 5% off)`;
+- the dashboard and the manage list show the quoted price with the list price
+  struck through, and the price sorts order by what a customer pays.
+
+The form previews that sentence before you save, and refuses a percentage that
+is not a whole number between 1 and 95, or a percentage with no price to come
+off. A `0` or an empty field both mean "no offer", so clearing the box is all
+it takes to end one.
+
+**One migration is needed before a discount can be saved**: run the single
+`alter table public.products add column if not exists discount_percent …`
+statement in section 1 of `supabase/SETUP.sql` in the Supabase SQL
+editor. Until you do, everything else keeps working — ordinary products still
+save, because the dashboard only names that column once a read has proved it
+exists — and saving an actual discount answers with a message that names the
+statement to run.
 
 ### The product photo
 
@@ -235,11 +268,12 @@ request with the access token this browser already holds, so the current
 password is never typed or stored. The session in front of you keeps working
 after the change; every other device has to sign in with the new one.
 
-Two things the spec asked for that this schema cannot hold, said plainly
-instead of faked: there is **no original/discount price column** on `products`
-(so no strike-through price in the dashboard, and none on the site either),
-and there is **no activity table** (hence the derived list above). Both would
-need a migration, which the constraints rule out.
+One thing the spec asked for that this schema still cannot hold, said plainly
+instead of faked: there is **no activity table**, hence the derived list above.
+It would need a migration. (The price side of the request is met: `products`
+now has `discount_percent`, and both the dashboard and the site strike the
+list price against the discounted one — see
+*Discounts, and the price a customer is quoted* above.)
 
 ## Where the business details live
 

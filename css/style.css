@@ -154,6 +154,12 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   border-radius: var(--radius-xs); font-weight: 700; transition: top var(--dur) var(--ease);
 }
 .skip-link:focus { top: 14px; }
+/* Spoken but not drawn: a struck-through price carries no meaning to a screen
+   reader until the word "was" says what the second figure is. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   font-family: var(--font-body); font-size: .72rem; font-weight: 700;

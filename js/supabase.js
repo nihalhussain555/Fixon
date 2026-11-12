@@ -28,6 +28,9 @@
 
   var STORAGE_BUCKET = "product-images";
   var MAX_IMAGE_BYTES = 5 * 1024 * 1024;      /* same ceiling the WhatsApp upload uses */
+  /* Read from js/config.js so the form, this cleaner and the CHECK constraint
+     in supabase/SETUP.sql all speak of the same ceiling. */
+  var MAX_DISCOUNT = (window.fixonUtils && window.fixonUtils.discountMax) || 95;
   var IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var REQUEST_TIMEOUT = 15000;
 
@@ -459,6 +462,7 @@
     }).then(function (res) {
       if (!res.ok) throw apiError(res, "The product list could not be loaded.");
       if (!Array.isArray(res.data)) throw new Error("Supabase answered the product list in an unexpected shape.");
+      noteColumns(res.data);
       return res.data;
     });
   }
@@ -473,6 +477,7 @@
       }).then(function (res) {
         if (res.status === 401 || res.status === 403) { clearSession(); var e = new Error("Not authorised - sign in again."); e.code = "signed_out"; throw e; }
         if (!res.ok) throw apiError(res, "The product list could not be loaded.");
+        noteColumns(res.data);
         return res.data;
       });
     });
@@ -490,6 +495,7 @@
       }).then(function (res) {
         if (res.status === 406 || res.status === 404) return null;   /* no such row for this admin */
         if (!res.ok) throw apiError(res, "The product could not be loaded.");
+        noteColumns(res.data);
         return res.data;
       });
     });
@@ -523,6 +529,32 @@
     return Math.floor(n);
   }
 
+  /* Does this project's products table have the discount column? Every read
+     here is select=*, so the first row that comes back answers it: the key
+     appears the moment the ALTER in supabase/SETUP.sql section 1 has been run.
+     null means no read has landed yet. The write below uses it to decide
+     whether a cleared discount may be sent as null - PostgREST rejects a body
+     naming a column the table does not have, whatever its value. */
+  var discountColumn = null;
+
+  function noteColumns(data) {
+    var row = Array.isArray(data) ? data[0] : data;
+    if (!row || typeof row !== "object") return;
+    discountColumn = Object.prototype.hasOwnProperty.call(row, "discount_percent");
+  }
+
+  /* An empty or zero discount is "no offer": the column then stays null rather
+     than holding a 0 that every reader would have to interpret. */
+  function toDiscount(value) {
+    var text = String(value == null ? "" : value).trim();
+    if (!text || text === "0") return null;
+    var n = Number(text.replace(/[^\d]/g, ""));
+    if (!isFinite(n) || n < 1 || n > MAX_DISCOUNT) {
+      throw new Error("A discount is a whole percentage between 1 and " + MAX_DISCOUNT + ", or left empty.");
+    }
+    return n;
+  }
+
   function productPayload(input) {
     var src = input || {};
     var name = cleanText(src.name, 120);
@@ -530,7 +562,8 @@
     if (name.length < 2) throw new Error("That name is too short to be useful.");
     var stock = src.stock === "" || src.stock == null ? null : toStock(src.stock, true);
     if (stock !== null && isNaN(stock)) throw new Error("The stock quantity must be a whole number, or left empty for 'not tracked'.");
-    return {
+    var discount = toDiscount(src.discount_percent);
+    var payload = {
       name: name,
       description: cleanText(src.description, 800),
       price: toPrice(src.price),
@@ -541,13 +574,25 @@
       featured: !!src.featured,
       is_active: src.is_active === false ? false : true
     };
+    /* A number is always sent. A cleared discount (null) is sent only once a
+       read has proved the column exists, so a shop that has not migrated yet
+       still saves ordinary products and still clears an offer - both of which
+       would otherwise be rejected as an unknown column. */
+    if (discount !== null || discountColumn === true) payload.discount_percent = discount;
+    return payload;
   }
 
   function postgrestWrite(res, what) {
     if (res.status === 401 || res.status === 403) { clearSession(); var e = new Error("Not authorised - sign in again."); e.code = "signed_out"; throw e; }
     if (!res.ok) {
       var msg = what;
-      if (res.data && /check constraint|violates/i.test(String(res.data.message || ""))) msg = what + ": a value was outside the allowed range.";
+      var detail = String((res.data && res.data.message) || "");
+      if (res.data && /check constraint|violates/i.test(detail)) msg = what + ": a value was outside the allowed range.";
+      else if (/discount_percent/i.test(detail) && /could not find|does not exist|not exist/i.test(detail)) {
+        /* The one failure the owner can fix themselves in one minute, so name
+           the statement rather than repeating PostgREST's wording. */
+        msg = "This project's products table has no discount column yet. Run the single ALTER statement in section 1 of supabase/SETUP.sql in the Supabase SQL editor, then save again.";
+      }
       else if (res.data && res.data.message) msg = what + ": " + res.data.message;
       var err = new Error(msg);
       err.status = res.status;

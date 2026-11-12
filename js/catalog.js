@@ -204,8 +204,14 @@
   function toSupabaseProduct(row, used) {
     var name = clip(row.name, 120);
     if (!name) return null;
-    var priceNumber = row.price === null || row.price === undefined || row.price === ""
-      ? null : priceValue(row.price);
+    /* The stored price is the shop's list price; discount_percent turns it
+       into what a customer is actually charged. It still goes through the same
+       parser a typed figure always did, and then saleOf - the only place the
+       discount arithmetic lives, so the card, the dialog, the tray total and
+       the dashboard cannot quote four different numbers. */
+    var list = priceValue(row.price);
+    var sale = U.saleOf(list, row.discount_percent);
+    var was = sale.percent ? U.formatPrice(sale.base) : null;
     var image = resolveImage(row.image_url);
     var categoryId = categoryIdFor(row.category);
     var p = {
@@ -213,12 +219,12 @@
       description: clip(row.description, 800),
       /* The database column is numeric text, so it goes through the same
          price parser the card shows - one pipeline, one shape of mistake. */
-      priceText: priceNumber === null ? "" : String(row.price),
-      price: priceNumber === null ? null : U.formatPrice(priceNumber),
-      priceNumber: priceNumber,
-      wasPrice: null,
-      wasLabel: "",
-      discount: null,
+      priceText: sale.price === null ? "" : String(sale.price),
+      price: sale.price === null ? null : U.formatPrice(sale.price),
+      priceNumber: sale.price,
+      wasPrice: was,
+      wasLabel: was || "",
+      discount: sale.percent,
       category: categoryId,
       categoryLabel: categoryLabel(categoryId) || clip(row.category, 40),
       categoryRaw: clip(row.category, 40),

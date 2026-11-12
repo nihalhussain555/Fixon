@@ -20,11 +20,14 @@
       var A = window.fixonAdmin, el = A.el;
       var S = window.fixonSupabase;
 
+      /* Both price sorts work on the figure a customer is charged, not the
+         list price the column holds: browsing "cheapest first" means the
+         discounted item, discount already taken off. */
       var SORTS = {
         newest: function (a, b) { return new Date(b.created_at) - new Date(a.created_at); },
         oldest: function (a, b) { return new Date(a.created_at) - new Date(b.created_at); },
-        "price-high": function (a, b) { return (Number(b.price) || 0) - (Number(a.price) || 0); },
-        "price-low": function (a, b) { return (Number(a.price) || 0) - (Number(b.price) || 0); }
+        "price-high": function (a, b) { return (Number(A.salePrice(b)) || 0) - (Number(A.salePrice(a)) || 0); },
+        "price-low": function (a, b) { return (Number(A.salePrice(a)) || 0) - (Number(A.salePrice(b)) || 0); }
       };
 
       A.guard("products", "Manage products", function (session, body) {
@@ -294,7 +297,10 @@
 
           tr.appendChild(el("td", null, A.categoryLabel(p.category) || "—"));
 
-          /* Price: inline edit, blank keeps "Price on request". */
+          /* Price: inline edit of the LIST price, blank keeps "Price on
+             request". A stored discount is shown under the box rather than
+             edited here, so the number in the field always matches the number
+             in the column and an offer cannot be typed away by accident. */
           var tdPrice = el("td", "price");
           var priceForm = el("form", "inline-form");
           var priceIn = el("input");
@@ -302,7 +308,7 @@
           priceIn.inputMode = "decimal";
           priceIn.value = p.price === null || p.price === undefined ? "" : String(p.price);
           priceIn.placeholder = "—";
-          priceIn.setAttribute("aria-label", "Price for " + p.name);
+          priceIn.setAttribute("aria-label", "List price for " + p.name);
           var priceBtn = el("button", "btn btn-quiet btn-sm", "Save");
           priceBtn.type = "submit";
           priceForm.appendChild(priceIn);
@@ -315,6 +321,8 @@
             }, p.name, "'s price is updated.");
           });
           tdPrice.appendChild(priceForm);
+          var offer = A.discountNote(p);
+          if (offer) tdPrice.appendChild(offer);
           tr.appendChild(tdPrice);
 
           /* Stock: inline edit; empty means "not tracked". */
@@ -375,7 +383,7 @@
                shop owner ends up removing the wrong row. */
             A.confirmAction({
               title: "Delete this product?",
-              message: "\"" + p.name + "\"" + (p.price ? " (" + A.money(p.price) + ")" : "") + " will be removed from the shop for good.",
+              message: "\"" + p.name + "\"" + (A.salePrice(p) !== null ? " (" + A.money(A.salePrice(p)) + " to the customer)" : "") + " will be removed from the shop for good.",
               detail: p.image_url
                 ? "Its uploaded photo is deleted from storage too - but only when no other product still uses that same file."
                 : "This product has no uploaded photo, so nothing in storage changes.",
@@ -418,6 +426,7 @@
             name: p.name,
             description: p.description,
             price: p.price,
+            discount_percent: p.discount_percent,
             category: p.category,
             image_url: p.image_url,
             stock: p.stock,

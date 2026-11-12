@@ -23,7 +23,9 @@
 
   var A = window.fixonAdmin;
   var el = A.el;
+  var U = window.fixonUtils;
   var IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  var DISCOUNT_MAX = U.discountMax;
 
   function bytes(n) {
     if (!n && n !== 0) return "";
@@ -95,6 +97,8 @@
     descTa.placeholder = "What it is, what it fits, what makes it worth the price.";
     descTa.addEventListener("input", function () { dirty = true; });
     var priceIn = input("price", "text", existing && existing.price, { inputmode: "decimal", placeholder: "1499  (leave empty for \"Price on request\")" });
+    var discIn = input("discount_percent", "number", existing && existing.discount_percent,
+      { min: "1", max: String(DISCOUNT_MAX), step: "1", placeholder: "e.g. 10  (empty = no offer)" });
     var catIn = input("category", "text", existing && existing.category, { maxlength: "60", placeholder: "e.g. cases", valueList: true });
     var stockIn = input("stock", "number", existing && existing.stock, { min: "0", step: "1", placeholder: "e.g. 12  (empty = not tracked)" });
     var noteIn = input("stock_note", "text", existing && existing.stock_note, { maxlength: "60", placeholder: "In stock at the counter" });
@@ -137,6 +141,39 @@
     var pricing = panel("Price, category and stock",
       "An empty price keeps the card on \"Price on request\", and a stock of 0 turns the order buttons off. The shop never invents either.");
     pricing.appendChild(field("price", "Price (₹)", priceIn, "Digits only, up to 1 crore. Empty means customers ask you first."));
+    pricing.appendChild(field("discount_percent", "Discount %", discIn,
+      "Optional, 1 to " + DISCOUNT_MAX + ". The price above stays the list price - this is what comes off it."));
+
+    /* What the customer will actually be quoted, spelled out before anything
+       is saved, because the two numbers on a card are easy to mix up. */
+    var saleLine = el("p", "hint full");
+    saleLine.setAttribute("role", "status");
+    saleLine.setAttribute("aria-live", "polite");
+    pricing.appendChild(saleLine);
+
+    function paintSale() {
+      var sale = U.saleOf(priceIn.value, discIn.value);
+      var typed = discIn.value.trim();
+      var asked = typed !== "" && (!isFinite(Number(typed)) || Number(typed) < 1 || Number(typed) > DISCOUNT_MAX);
+      if (sale.price === null) {
+        saleLine.textContent = typed
+          ? "A percentage needs a price to come off, so fill in the price first."
+          : "With no price the card reads \"" + ((window.FIXON && window.FIXON.priceNote) || "Price on request") + "\".";
+        return;
+      }
+      if (!sale.percent) {
+        saleLine.textContent = "Customers see " + A.money(sale.price) + "." +
+          (asked ? " Nothing is taken off until a whole percentage between 1 and " + DISCOUNT_MAX + " is filled in." : "");
+        return;
+      }
+      saleLine.textContent = "Customers see " + A.money(sale.price) + ", with " + A.money(sale.base) +
+        " struck through and a " + sale.percent + "% OFF badge. An order on WhatsApp quotes " +
+        A.money(sale.price) + " each.";
+    }
+    priceIn.addEventListener("input", paintSale);
+    discIn.addEventListener("input", paintSale);
+    paintSale();
+
     pricing.appendChild(field("category", "Category", catIn, "Type the shop's slug or pick one below."));
     pricing.appendChild(field("stock", "Stock quantity", stockIn, "0 shows \"Out of stock\". Empty = not counted."));
     pricing.appendChild(field("stock_note", "Stock note (optional)", noteIn, "Free text beside the dot, e.g. \"3 at the counter\"."));
@@ -497,6 +534,15 @@
         var s = Number(stockText);
         if (!isFinite(s) || s < 0 || Math.floor(s) !== s) errs.stock = "Stock must be a whole number of 0 or more, or empty.";
       }
+      var discText = discIn.value.trim();
+      if (discText) {
+        var d = Number(discText);
+        if (!isFinite(d) || d < 1 || d > DISCOUNT_MAX || Math.floor(d) !== d) {
+          errs.discount_percent = "A discount is a whole percentage between 1 and " + DISCOUNT_MAX + ", or empty.";
+        } else if (!priceText) {
+          errs.discount_percent = "Set a price first - a percentage has to come off something.";
+        }
+      }
       var img = imageIn.value.trim();
       if (img && /^(javascript|data|vbscript|blob):/i.test(img)) {
         errs.image_url = "That image address is not usable - paste an https:// link or drop a file above.";
@@ -507,6 +553,7 @@
         name: name,
         description: descTa.value,
         price: priceText,
+        discount_percent: discText,
         category: catIn.value,
         image_url: img,
         stock: stockText,

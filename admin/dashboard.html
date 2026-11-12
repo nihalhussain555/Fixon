@@ -236,7 +236,11 @@
           tr.appendChild(nameCell);
 
           tr.appendChild(el("td", null, A.categoryLabel(p.category) || "—"));
-          tr.appendChild(el("td", "price", A.money(p.price)));
+          var tdPrice = el("td", "price");
+          tdPrice.appendChild(el("span", null, A.money(A.salePrice(p))));
+          var offer = A.discountNote(p);
+          if (offer) tdPrice.appendChild(offer);
+          tr.appendChild(tdPrice);
           tr.appendChild(el("td", null, p.stock === null || p.stock === undefined ? "Not tracked" : String(p.stock)));
           var tdState = el("td");
           tdState.appendChild(A.statusPill(p));

@@ -97,6 +97,10 @@
         name: live ? live.name : (row.name || "An item from the list"),
         price: live ? live.price : row.price,
         priceNumber: live ? live.priceNumber : row.priceNumber,
+        /* The list price beside a discounted one, straight from the live row,
+           so nothing stale is stored on the visitor's device. */
+        was: live ? (live.wasLabel || null) : null,
+        discount: live ? (live.discount || null) : null,
         detail: live ? [live.brand, live.model].filter(Boolean).join(" - ") : row.detail,
         /* The category label still names the aisle the item sits in, which
            the shop reads in the message. The listing's own photo is not
@@ -196,8 +200,14 @@
   }
 
   function priceLabel(item) {
-    if (item.price) return item.price;
-    return U.isSet(CFG.priceNote) ? CFG.priceNote : "Price on request";
+    var text = item.price || (U.isSet(CFG.priceNote) ? CFG.priceNote : "Price on request");
+    /* A discounted item is quoted at its sale price, with the list price
+       beside it, so the shop can see the figure came from an offer on the
+       site rather than from a mistyping in the chat. */
+    if (item.discount && item.was) {
+      text += " (listed at " + item.was + ", " + item.discount + "% off)";
+    }
+    return text;
   }
 
   /* One item, in the same labelled shape the single-product order button
@@ -473,8 +483,10 @@
         var copy = el("div", "order-copy");
         copy.appendChild(el("b", null, item.name));
         var meta = [];
-        if (item.price) meta.push(money(item.priceNumber) + " each");
-        else meta.push("price not listed online");
+        if (item.price) {
+          meta.push(money(item.priceNumber) + " each" +
+            (item.discount && item.was ? " (" + item.discount + "% off " + item.was + ")" : ""));
+        } else meta.push("price not listed online");
         if (item.detail) meta.push(item.detail);
         copy.appendChild(el("small", null, meta.join(" - ")));
         if (!item.listed) copy.appendChild(el("small", "order-warn", "This one is no longer on the online list - ask FIXON about it."));

@@ -512,6 +512,12 @@ table.data .name-cell span {
 .pill.off { background: var(--surface-2); color: var(--muted); }
 .pill.out { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 .pill.info { background: var(--accent-soft); color: var(--accent-strong); border-color: transparent; }
+.pill.sale { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+/* The price a customer is charged, beside the list price it came from. */
+.discount-note { display: block; margin-top: 5px; font-size: .74rem; color: var(--muted); }
+.discount-note b { color: var(--accent-strong); font-weight: 800; }
+.discount-note s { margin-left: 5px; text-decoration-thickness: 1px; }
+.discount-note em { font-style: normal; margin-left: 5px; color: var(--warn); font-weight: 700; }
 .pill-stack { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 
 /* ------------------------------------------------------------------ *
