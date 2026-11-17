@@ -14,16 +14,20 @@
    "Category illustration", so a stand-in never looks like a real stock photo.
 
    BUYING: the primary action is "Add to order", which puts the row into the
-   order list js/order.js turns into a WhatsApp message. Nothing on a card ever
-   says bought, booked or in stock - the shop confirms all of that.
+   order list js/order.js turns into a WhatsApp message. A card may state
+   availability, but only in the shop's own tracked words: the label comes from
+   the stock quantity and note the dashboard holds, and "nothing is booked until
+   FIXON confirms it" stays true.
    ========================================================================== */
 (function () {
   "use strict";
 
   var U = window.fixonUtils;
+  var C = window.fixonCatalog;
   var CFG = window.FIXON;
 
   var CARD_DESCRIPTION = 150;
+  var SOLD_OUT_TITLE = "This product is out of stock, so it cannot go on the order list.";
 
   function truncate(text, max) {
     var value = String(text || "");
@@ -40,24 +44,32 @@
     return node;
   }
 
-  /* brand + model only ever say what the sheet says about the row. */
+  /* brand + model only ever say what the shop's own row says about it. */
   function fitmentText(p) {
     if (p.brand && p.model) return p.brand + " · " + p.model;
     return p.brand || p.model || "";
   }
 
+  /* Availability, read off the tracked quantity:
+     0  - the shop counted it out, and that outranks a cheerful note,
+     >0 - the note is the shop's wording ("In stock (4)", "At the counter"),
+     null - nothing is counted, so the card admits it asks instead of claiming. */
+  function stockInfo(p) {
+    if (p.stockCount === 0) return { label: "Out of stock", cls: "is-out" };
+    if (p.stockCount > 0) return { label: p.stock || "In stock", cls: "is-in" };
+    return { label: p.stock || "Availability on request", cls: "is-ask" };
+  }
+
   function buildCard(p) {
     var card = el("article", "product-card reveal");
     card.setAttribute("data-product-id", p.id);
+    if (p.stockCount === 0) card.classList.add("is-sold-out");
 
-    /* The whole picture is the details button: clicking a product opens the
-       dialog built by js/shop.js, which is loaded on every page that shows
-       product cards. */
-    var visual = el("button", "product-visual");
-    visual.type = "button";
-    visual.setAttribute("data-details", p.id);
-    visual.setAttribute("aria-label", "View details for " + p.name);
-    if (p.categoryLabel) visual.appendChild(el("span", "product-tag", p.categoryLabel));
+    /* The picture, the heart and the quick view share one square stage. The
+       stage itself is a div: a card has three controls on it, and a button can
+       never sit inside another button, so the click-anywhere-details target is
+       its own layer under the badges. */
+    var visual = el("div", "product-visual");
 
     var img = el("img", "product-photo");
     img.src = p.photo;
@@ -72,18 +84,47 @@
     if (p.image) img.setAttribute("data-fallback", p.fallbackPhoto || U.photoSrc("accessories", "other"));
     visual.appendChild(img);
 
-    /* Offer badges come straight off the shop's own sheet columns and only
-       after js/catalog.js has checked them against the selling price. */
-    if (p.discount) visual.appendChild(el("span", "discount-badge", p.discount + "% OFF"));
+    var hit = el("button", "visual-hit");
+    hit.type = "button";
+    hit.setAttribute("data-details", p.id);
+    hit.setAttribute("aria-label", "View details for " + p.name);
+    visual.appendChild(hit);
 
-    if (!p.image) visual.appendChild(el("span", "photo-note", "Category illustration"));
-    visual.appendChild(el("span", "view-hint", "View details"));
+    /* One stack in the corner, so the labels never fight each other for room:
+       the category the shop chose, the offer it set, and - only when the row
+       has no photo of its own - the admission that this is a stand-in. */
+    var badges = el("div", "visual-badges");
+    if (p.categoryLabel) badges.appendChild(el("span", "product-tag", p.categoryLabel));
+
+    /* Offer badge, straight off the shop's own column and only once
+       js/catalog.js has checked it against the selling price. */
+    if (p.discount) badges.appendChild(el("span", "discount-badge", p.discount + "% OFF"));
+
+    /* Keeps the renders honest once real stock photos start replacing them. */
+    if (!p.image) badges.appendChild(el("span", "photo-note", "Category illustration"));
+    if (badges.childNodes.length) visual.appendChild(badges);
+
+    var wish = el("button", "wish-btn");
+    wish.type = "button";
+    wish.setAttribute("data-wish", p.id);
+    wish.setAttribute("data-name", p.name);
+    visual.appendChild(wish);
+
+    /* The hover cue is a real control, not a painted-on hint, so the same
+       action is reachable by keyboard and by a finger that never hovers. */
+    var quick = el("button", "card-quick", "Quick view");
+    quick.type = "button";
+    quick.setAttribute("data-details", p.id);
+    visual.appendChild(quick);
+
     card.appendChild(visual);
 
     var info = el("div", "product-info");
     card.appendChild(info);
-    var fitment = fitmentText(p);
-    if (fitment) info.appendChild(el("small", null, fitment));
+
+    var maker = fitmentText(p);
+    if (maker) info.appendChild(el("p", "product-brand", maker));
+
     var title = el("h3", null, p.name);
     title.setAttribute("data-details", p.id);
     info.appendChild(title);
@@ -99,6 +140,12 @@
     } else {
       info.appendChild(el("p", "price-on-request", CFG.priceNote));
     }
+
+    var stock = stockInfo(p);
+    var stockLine = el("p", "stock-label " + stock.cls, "");
+    stockLine.appendChild(el("i", "stock-dot", ""));
+    stockLine.appendChild(el("span", null, stock.label));
+    info.appendChild(stockLine);
 
     if (p.description) info.appendChild(el("p", "product-excerpt", truncate(p.description, CARD_DESCRIPTION)));
 
@@ -116,6 +163,13 @@
     var add = el("button", "btn btn-sm btn-primary", "Add to order");
     add.type = "button";
     add.setAttribute("data-add", p.id);
+    /* Counted out means the click can only fail - js/order.js refuses such a
+       row - so the card says so on the button instead of inviting it. */
+    if (p.stockCount === 0) {
+      add.disabled = true;
+      add.classList.add("is-unconfigured");
+      add.title = SOLD_OUT_TITLE;
+    }
     actions.appendChild(add);
 
     if (p.link) {
@@ -133,17 +187,30 @@
   /* ------------------------------------------------------------------ *
    * The order button reflects the tray: "Add to order" until the item is on
    * the list, then the quantity already there. js/order.js fires
-   * fixon:order whenever the list changes.
+   * fixon:order whenever the list changes. A row the shop has counted out
+   * keeps the reason instead: the label is the same, but the button stays
+   * off, because adding one only ever fails.
    * ------------------------------------------------------------------ */
   function syncAddButtons(root) {
     var host = root || document;
     var order = window.fixonOrder;
     host.querySelectorAll("[data-add]").forEach(function (button) {
-      var qty = order ? order.countFor(button.getAttribute("data-add")) : 0;
+      var id = button.getAttribute("data-add");
+      var product = C ? C.get(id) : null;
+      if (product && product.stockCount === 0) {
+        button.disabled = true;
+        button.textContent = "Add to order";
+        button.classList.remove("in-order");
+        button.classList.add("is-unconfigured");
+        button.title = SOLD_OUT_TITLE;
+        return;
+      }
+      var qty = order ? order.countFor(id) : 0;
+      button.disabled = false;
+      button.classList.remove("is-unconfigured");
       button.classList.toggle("in-order", qty > 0);
       button.textContent = qty > 0 ? "On your list (" + qty + ")" : "Add to order";
       if (!order) {
-        button.classList.add("is-unconfigured");
         button.title = "js/order.js is not loaded on this page";
       } else if (qty === 0) {
         button.title = "Adds one to your order list. Nothing is sent or booked until you press Send.";
@@ -184,6 +251,9 @@
         if (typeof window.fixonProductModal === "function") window.fixonProductModal(product, list);
       });
     });
+
+    /* Hearts: js/wishlist.js owns the storage, this only hands it the buttons. */
+    if (window.fixonWishlist) window.fixonWishlist.bind(container);
 
     /* Freshly rendered cards animate in like the rest of the page. */
     if (document.documentElement.getAttribute("data-motion") !== "reduced" && "IntersectionObserver" in window) {

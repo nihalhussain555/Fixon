@@ -23,6 +23,7 @@ create table if not exists public.products (
   price       numeric check (price is null or (price > 0 and price < 10000000)),
   discount_percent smallint check (discount_percent is null or (discount_percent between 1 and 95)),
   category    text not null default '' check (char_length(category) <= 60),
+  brand       text not null default '' check (char_length(brand) <= 60),
   image_url   text not null default '' check (char_length(image_url) <= 500),
   stock       integer check (stock is null or (stock >= 0 and stock <= 100000)),
   stock_note  text not null default '' check (char_length(stock_note) <= 60),
@@ -41,6 +42,11 @@ create index if not exists products_category_idx on public.products (lower(categ
 -- check only travels with the statement that actually adds the column):
 alter table public.products add column if not exists discount_percent smallint
   check (discount_percent is null or (discount_percent between 1 and 95));
+
+-- Same story for the maker line a product card can show. Optional: a product
+-- with no brand simply shows no brand, the site never guesses one.
+alter table public.products add column if not exists brand text not null default ''
+  check (char_length(brand) <= 60);
 
 -- A product's price column keeps holding the shop's LIST price; the number a
 -- customer is charged is worked out from it on every page:

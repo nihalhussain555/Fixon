@@ -38,8 +38,8 @@
 
         var search = el("input");
         search.type = "search";
-        search.placeholder = "Search by name or description...";
-        search.setAttribute("aria-label", "Search products by name or description");
+        search.placeholder = "Search by name, brand or description...";
+        search.setAttribute("aria-label", "Search products by name, brand or description");
 
         var catSel = el("select");
         catSel.setAttribute("aria-label", "Filter by category");
@@ -94,7 +94,7 @@
         function filtered() {
           return state.rows.filter(function (p) {
             if (state.q) {
-              var hay = (String(p.name) + " " + String(p.description) + " " + String(p.category)).toLowerCase();
+              var hay = (String(p.name) + " " + String(p.description) + " " + String(p.category) + " " + (p.brand || "")).toLowerCase();
               if (hay.indexOf(state.q) === -1) return false;
             }
             if (state.cat !== "all") {
@@ -292,7 +292,9 @@
 
           var tdName = el("td", "name-cell");
           tdName.appendChild(el("b", null, p.name));
-          if (p.description) tdName.appendChild(el("span", null, p.description));
+          /* The maker line first: a brand search can then be seen to match. */
+          if (p.brand) tdName.appendChild(el("span", "row-brand", p.brand));
+          if (p.description) tdName.appendChild(el("span", "row-desc", p.description));
           tr.appendChild(tdName);
 
           tr.appendChild(el("td", null, A.categoryLabel(p.category) || "—"));
@@ -428,6 +430,7 @@
             price: p.price,
             discount_percent: p.discount_percent,
             category: p.category,
+            brand: p.brand,
             image_url: p.image_url,
             stock: p.stock,
             stock_note: p.stock_note,

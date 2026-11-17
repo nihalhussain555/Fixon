@@ -26,7 +26,9 @@ it.
   instead of being filled with a fake.
 - **No fake purchase flow.** There is no cart that says "ordered", no payment
   page, no stock counter and no account. The order list lives in the visitor's
-  browser and becomes a WhatsApp message only when they press Send.
+  browser and becomes a WhatsApp message only when they press Send. The saved
+  list (the heart on a card) is the same kind of thing: names kept on that one
+  device, nothing sent anywhere, no "only 2 left" and no "someone just bought".
 - **No data leaves the device** until the visitor sends a message themselves.
   The contact form prepares text locally and opens WhatsApp or
   copy-to-clipboard; it does not submit anything, and it says so on screen.
@@ -39,7 +41,8 @@ it.
 ```
 index.html            home: hero slider, category tiles, live product strip,
                       cover showcase, brand fitment strip, how-ordering-works
-shop.html             the product grid: one search box, Details dialog, order tray
+shop.html             the product grid: one search box, Saved-items filter,
+                      Details dialog, order tray
 accessories.html      category tiles, each one a filtered link into shop.html
 brands.html           find covers and glass by device brand
 contact.html          phone, WhatsApp, address, hours, map, message form (name,
@@ -51,9 +54,12 @@ js/config.js          ALL business values + the shared helpers (window.FIXON)
 js/catalog.js         reads the active Supabase products, validates them, caches
                       one list per page (window.fixonCatalog)
 js/supabase.js        the Supabase REST + Auth calls the shop and admin make
-js/products.js        a row -> a card, safely; the Add to order button
+js/products.js        a row -> a card, safely; the Add to order, heart and
+                      quick-view controls on it
 js/order.js           the order list and the WhatsApp message it composes
-js/shop.js            search, deep-link pills, owner notes, the Details dialog
+js/wishlist.js        the heart on a card: items saved on this device only
+js/shop.js            search, deep-link pills, saved-items filter, owner notes,
+                      the Details dialog
 js/categories.js      accessories.html tiles
 js/finder.js          brands.html brand tiles
 js/contact.js         contact composer
@@ -87,6 +93,7 @@ the next read, with no deploy.
 | `discount_percent` | whole percentage, 1–95, taken off `price` for this item; empty means no offer |
 | `description` | the line under the title, up to 800 characters |
 | `category` | matched against `productCategories` in `js/config.js`; unknown text is kept and shown as written |
+| `brand` | the maker line above the name on a card; empty shows no brand, the site never guesses one |
 | `image_url` | see below |
 | `stock` | an integer; `0` marks the item sold out and blocks the order button, empty means "not tracked" |
 | `stock_note` | free text in place of the count, e.g. "At the counter" |
@@ -120,13 +127,37 @@ is not a whole number between 1 and 95, or a percentage with no price to come
 off. A `0` or an empty field both mean "no offer", so clearing the box is all
 it takes to end one.
 
-**One migration is needed before a discount can be saved**: run the single
-`alter table public.products add column if not exists discount_percent …`
-statement in section 1 of `supabase/SETUP.sql` in the Supabase SQL
-editor. Until you do, everything else keeps working — ordinary products still
-save, because the dashboard only names that column once a read has proved it
-exists — and saving an actual discount answers with a message that names the
-statement to run.
+**Two migrations are needed before those two fields can be saved**: run the
+single `alter table public.products add column if not exists discount_percent …`
+and `… add column if not exists brand …` statements in section 1 of
+`supabase/SETUP.sql` in the Supabase SQL editor. Until you do, everything else
+keeps working — ordinary products still save, because the dashboard only names
+a column once a read has proved it exists — and saving a discount or a brand
+answers with a message that names the statement to run.
+
+### What a card shows, and the heart on it
+
+Every surface lists the same fields off the same row, so a card is the data, not
+a decoration over it: the photo (or, when the row has none, that product's own
+category illustration, labelled as one), the brand line when there is a brand,
+the name, the price the customer is quoted with the list price struck through
+and a `25% OFF` badge when there is an offer, the category tag, and an
+availability label. The label is read off `stock`: a counted `0` says
+"Out of stock" and disables the order button, a count above 0 says what the
+shop's own `stock_note` says, and a blank count admits "Availability on request"
+rather than inventing an "In stock".
+
+Three controls sit on the photo area — the whole image opens the Details dialog
+(quick view), the heart saves the item, and "Add to order" still adds it to the
+tray that becomes the WhatsApp message. The button says *order* on purpose: this
+site has no cart, no payment and no reservation, and calling it a cart would
+promise something the shop does not do.
+
+Saved items are the visitor's own shortlist, kept in that browser's
+`localStorage` under `fixon_wishlist_v1`. The count in the header and
+`shop.html?saved=1` read from the same place, and nothing about the list is
+sent to Supabase or to the shop. Like the order tray, it is per device and
+permanently clears with the browser's site data.
 
 ### The product photo
 

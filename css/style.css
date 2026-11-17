@@ -457,63 +457,128 @@ h1 em, h2 em { font-style: normal; color: var(--accent); }
 .cover-label small { display: block; font-size: .76rem; color: var(--photo-soft); margin-top: 3px; }
 
 /* 10. PRODUCT CARDS ===================================================== */
-.product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
 .product-card {
+  position: relative; display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
-  overflow: hidden; display: flex; flex-direction: column;
+  overflow: hidden;
   transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.product-card:hover { transform: translateY(-5px); box-shadow: var(--shadow); border-color: var(--accent-line); }
-.product-visual {
-  width: 100%; height: 300px; display: grid; place-items: center; position: relative; overflow: hidden;
-  background: var(--bg-boost); cursor: pointer; border: 0; padding: 0; text-align: inherit;
+/* :focus-within, not just :hover, so a keyboard visitor gets the same card -
+   and the controls that appear on it - as a mouse visitor does. */
+.product-card:hover, .product-card:focus-within {
+  transform: translateY(-6px); box-shadow: var(--shadow); border-color: var(--accent-line);
 }
-.product-tag {
-  position: absolute; left: 14px; top: 14px; z-index: 2; background: var(--accent-soft); color: var(--accent);
-  border: 1px solid var(--accent-line);
-  font-size: .72rem; padding: 6px 10px; border-radius: var(--radius-pill); font-weight: 700; letter-spacing: .06em;
+/* A square stage: every card in a row ends up the same height whatever shape
+   the owner's photo arrives in. Contain rather than cover, so a product is
+   never cropped out of view to make the grid tidy. */
+.product-visual {
+  position: relative; aspect-ratio: 1 / 1; overflow: hidden;
+  background: radial-gradient(72% 62% at 50% 40%, var(--surface-2), transparent 74%), var(--bg-boost);
 }
 .product-photo {
-  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center;
-  padding: 18px;
-  transition: transform .45s var(--ease);
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; object-position: center; padding: 22px;
+  transition: transform .5s var(--ease);
 }
-.product-card:hover .product-photo { transform: scale(1.05); }
-/* Click hint over the picture: the whole visual opens the Details dialog. */
-.view-hint {
-  position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 12px); z-index: 2;
-  background: var(--accent); color: var(--on-accent); font-size: .74rem; font-weight: 700;
-  padding: 7px 14px; border-radius: var(--radius-pill); opacity: 0; pointer-events: none;
-  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+.product-card:hover .product-photo, .product-card:focus-within .product-photo { transform: scale(1.06); }
+/* Sold out is a fact about the shelf, not a reason to hide the product. */
+.product-card.is-sold-out .product-photo { filter: saturate(.55); opacity: .78; }
+/* The click-anywhere-details layer sits above the photo and below the labels,
+   so the heart and the quick view stay pressable on top of it. */
+.visual-hit { position: absolute; inset: 0; z-index: 1; width: 100%; cursor: pointer; }
+.visual-hit:focus-visible { outline-offset: -4px; }
+/* One corner stack, so the labels never compete for room on the picture.
+   pointer-events: none keeps the layer under it clickable. */
+.visual-badges {
+  position: absolute; left: 12px; top: 12px; z-index: 3;
+  display: grid; gap: 6px; justify-items: start; pointer-events: none;
 }
-.product-visual:hover .view-hint, .product-visual:focus-visible .view-hint { opacity: 1; transform: translate(-50%, 0); }
+.product-tag {
+  background: var(--accent-soft); color: var(--accent);
+  border: 1px solid var(--accent-line);
+  font-size: .68rem; padding: 5px 10px; border-radius: var(--radius-pill); font-weight: 700; letter-spacing: .06em;
+  backdrop-filter: blur(6px);
+}
 /* Keeps the renders honest once real stock photos start replacing them. */
 .photo-note {
-  position: absolute; right: 12px; bottom: 12px; z-index: 2; background: var(--scrim);
-  color: var(--photo-soft); font-size: .72rem; font-weight: 600; padding: 4px 9px; border-radius: var(--radius-pill);
+  background: var(--scrim); color: var(--photo-soft);
+  font-size: .66rem; font-weight: 600; padding: 4px 9px; border-radius: var(--radius-pill);
   backdrop-filter: blur(4px);
 }
-.product-info { padding: 19px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.product-info small { color: var(--muted); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; }
-.product-info h3 { font-size: 1.02rem; margin: 0; }
-/* The title is a second click target for the same Details dialog. */
-.product-info h3[data-details] { cursor: pointer; transition: color var(--dur) var(--ease); }
-.product-info h3[data-details]:hover { color: var(--accent); }
 .price-on-request { font-size: .84rem; color: var(--muted); display: flex; align-items: center; gap: 7px; }
 .price-on-request::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 /* Shown only when a listing carries a configured price; otherwise the card
    keeps its "Price on request" line. */
-.product-price { font-size: 1.12rem; font-weight: 700; font-family: var(--font-display); color: var(--price); }
-.product-price small { font-size: .68rem; font-weight: 600; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-left: 6px; }
-/* Optional offer. Neither of these ever renders unless the shop's own
-   original_price / discount columns carried a figure that survived the checks
-   in js/catalog.js, so a struck price here is always the shop's claim. */
-.was { font-size: .78em; font-weight: 600; color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+.product-price {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  font-size: 1.25rem; font-weight: 700; font-family: var(--font-display); color: var(--price);
+}
+.product-price small { font-size: .64rem; font-weight: 600; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+/* The struck list price and the offer: both come from the shop's own
+   price / discount_percent columns, checked in js/catalog.js, so a strike
+   through here is always the shop's claim. */
+.was { font-size: .72em; font-weight: 600; color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; }
 .discount-badge {
-  position: absolute; right: 14px; top: 14px; z-index: 2;
   background: var(--accent); color: var(--on-accent);
-  font-size: .7rem; font-weight: 800; letter-spacing: .04em;
+  font-size: .68rem; font-weight: 800; letter-spacing: .04em;
   padding: 5px 10px; border-radius: var(--radius-pill); box-shadow: var(--shadow-sm);
+}
+/* What the tracked quantity says, in the shop's own words, coloured by whether
+   the counter can hand it over today. */
+.stock-label {
+  display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+  font-size: .74rem; font-weight: 700; letter-spacing: .02em;
+}
+.stock-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.stock-label.is-in { color: var(--ok); }
+.stock-label.is-out { color: var(--danger); }
+.stock-label.is-ask { color: var(--muted); }
+/* Maker line, drawn only when the row carries a brand. */
+.product-brand {
+  font-size: .67rem; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
+  color: var(--muted);
+}
+.product-info { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 9px; flex: 1; }
+.product-info h3 { font-size: 1.04rem; line-height: 1.32; margin: 0; }
+/* The title is a second click target for the same Details dialog. */
+.product-info h3[data-details] { cursor: pointer; transition: color var(--dur) var(--ease); }
+.product-info h3[data-details]:hover { color: var(--accent); }
+/* Quick view: the picture's own shortcut to the dialog js/shop.js builds, and
+   a real button so it works by keyboard and on a screen without a hover. */
+.card-quick {
+  position: absolute; left: 50%; bottom: 14px; transform: translate(-50%, 14px); z-index: 3;
+  background: var(--accent); color: var(--on-accent); font-size: .75rem; font-weight: 700;
+  padding: 9px 16px; border-radius: var(--radius-pill); box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+.product-card:hover .card-quick, .product-card:focus-within .card-quick { opacity: 1; transform: translate(-50%, 0); }
+.card-quick:hover { background: var(--accent-2); box-shadow: 0 12px 26px color-mix(in srgb, var(--accent) 32%, transparent); }
+/* Heart on the picture. Saved items are painted in the brand accent, because
+   this palette has no pink and a second colour would read as a different shop. */
+.wish-btn {
+  position: absolute; right: 12px; top: 12px; z-index: 3;
+  width: 38px; height: 38px; display: grid; place-items: center;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--text-soft); font-size: 1.1rem; line-height: 1;
+  opacity: 0; transform: translateY(-6px) scale(.94);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease),
+              color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              background-color var(--dur) var(--ease);
+}
+.product-card:hover .wish-btn, .product-card:focus-within .wish-btn, .wish-btn.is-saved {
+  opacity: 1; transform: none;
+}
+.wish-btn:hover { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.wish-btn.is-saved { color: var(--accent); border-color: var(--accent-line); }
+.wish-btn.is-saved:hover { transform: scale(1.08); }
+/* Nothing hovers on a touch screen, so both controls start visible there. */
+@media (hover: none) {
+  .wish-btn, .card-quick { opacity: 1; transform: none; }
 }
 .pd-discount {
   background: var(--tint); color: var(--accent); border: 1px solid var(--accent-line);
@@ -752,8 +817,10 @@ code {
 .wa-mini:hover { text-decoration: underline; }
 .wa-mini.is-unconfigured { color: var(--muted); }
 
-/* Product cards carry one action, so it takes the full width of the row. */
-.product-card .card-actions .btn { flex: 1; justify-content: center; }
+/* Product cards carry two actions, so they share the row evenly rather than
+   one sitting next to a full-width button. */
+.product-card .card-actions .btn { flex: 1 1 8rem; justify-content: center; }
+.product-card .card-actions .text-link { flex-basis: 100%; text-align: center; }
 
 .service-card > p { flex: initial; }
 /* Opening hours list */
@@ -993,21 +1060,30 @@ body.dialog-open { overflow: hidden; }
 /* A collected list, not a shopping cart: the badge counts what is on this
    device, and nothing here says bought, booked, reserved or in stock. The
    order leaves the site only when the visitor presses Send on WhatsApp. */
-.order-btn {
+.order-btn, .wish-toggle {
   display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px;
   border: 1px solid var(--line); border-radius: var(--radius-xs); background: var(--surface);
   color: var(--text); font-size: .82rem; font-weight: 700; white-space: nowrap;
   transition: border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
-.order-btn:hover { border-color: var(--accent-line); background: var(--accent-soft); }
-.order-count {
+.order-btn:hover, .wish-toggle:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+.order-count, .wish-count {
   display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px;
   border-radius: var(--radius-pill); background: var(--surface-3); color: var(--muted);
   font-family: var(--font-display); font-size: .74rem; font-weight: 700;
   transition: background-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.order-btn.has-items { border-color: var(--accent-line); }
-.order-btn.has-items .order-count { background: var(--accent); color: var(--on-accent); }
+.order-btn.has-items, .wish-toggle.has-items { border-color: var(--accent-line); }
+.order-btn.has-items .order-count, .wish-toggle.has-items .wish-count { background: var(--accent); color: var(--on-accent); }
+/* The heart is the compact twin of the order button: icon plus count, no word
+   to crowd the header. */
+.wish-toggle { padding: 0 11px; }
+.wish-glyph {
+  font-size: 1.15rem; line-height: 1; color: var(--muted);
+  transition: color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.wish-toggle:hover .wish-glyph { color: var(--accent); transform: scale(1.14); }
+.wish-toggle.has-items .wish-glyph { color: var(--accent); }
 
 .order-drawer {
   position: fixed; top: var(--header-h); right: 0; bottom: 0; width: min(430px, 100%);

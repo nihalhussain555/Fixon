@@ -19,9 +19,11 @@
 
   var U = window.fixonUtils;
   var C = window.fixonCatalog;
+  var W = window.fixonWishlist;
 
-  var state = { category: "All", query: "", brand: "", model: "", deeplink: "" };
+  var state = { category: "All", query: "", brand: "", model: "", deeplink: "", saved: false };
   var started = false;
+  var savedViewWired = false;
 
   function el(tag, className, text) {
     var node = document.createElement(tag);
@@ -45,8 +47,11 @@
   }
 
   /* The finder links here with a brand token and a series label. They narrow
-     the same way the search box does, so no separate code path is needed. */
+     the same way the search box does, so no separate code path is needed.
+     ?saved=1 (the heart in the header) keeps only the items this device has
+     saved; it is one more term, so it combines with the search box. */
   function matches(p) {
+    if (state.saved && !(W && W.has(p.id))) return false;
     if (!C.matchCategory(p, state.category)) return false;
     if (state.brand) {
       var token = state.brand.toLowerCase();
@@ -74,7 +79,8 @@
    * Deep-link pills
    * ------------------------------------------------------------------ *
    * The page has no category buttons any more, but links into it still carry
-   * ?cat=, ?brand= and ?model= (the category tiles, the brand finder). A
+   * ?cat=, ?brand= and ?model= (the category tiles, the brand finder) and
+   * ?saved=1 (the heart in the header). A
    * visitor who arrives that way is filtered, so the filter has to be visible
    * and one click has to undo it. Labels come from the configured categories;
    * anything unknown is shown as written, through textContent only.
@@ -93,6 +99,7 @@
     bar.textContent = "";
 
     var pills = [];
+    if (state.saved) pills.push(["Showing", "items you saved on this device"]);
     if (state.category !== "All") pills.push(["Category", categoryLabel(state.category)]);
     if (state.brand) pills.push(["Brand", state.brand]);
     if (state.model) pills.push(["Series", state.model]);
@@ -211,6 +218,58 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * The saved-items view (?saved=1)
+   * ------------------------------------------------------------------ *
+   * The list is the visitor's own, kept in this browser by js/wishlist.js,
+   * so an empty one is not a shop problem and gets no WhatsApp nudge. Two
+   * different empties are worth telling apart: nothing has ever been saved,
+   * and things are saved but the shop no longer lists them (renamed, hidden
+   * or deleted - a saved id is the product's name, so a rename moves it).
+   * ------------------------------------------------------------------ */
+  function paintSavedEmpty(box) {
+    var count = W ? W.count() : 0;
+    var row;
+    if (!count) {
+      box.appendChild(el("h3", null, "Nothing saved on this device yet"));
+      box.appendChild(el("p", null,
+        "Press the heart on any item to keep it here for later. Saving does not reserve, order or hold a price - it only remembers the name on this browser."));
+      box.appendChild(showAllLink("Browse all items", "shop.html"));
+      return;
+    }
+    /* Two different nothings. The search box and this view are separate terms,
+       so a saved list that is not empty but shows no card has been narrowed,
+       not orphaned - and saying so is the difference between an honest page and
+       one that blames the shop. */
+    if (state.query || state.brand || state.model || state.category !== "All") {
+      box.appendChild(el("h3", null, "None of your " + count + " saved " + (count === 1 ? "item" : "items") + " match that search"));
+      box.appendChild(el("p", null, "The list itself is untouched - drop the search and every saved item is back."));
+      row = el("div", "state-actions");
+      row.appendChild(showAllLink("Show all saved items", "shop.html?saved=1"));
+      box.appendChild(row);
+      return;
+    }
+    box.appendChild(el("h3", null, "None of your " + count + " saved " + (count === 1 ? "item is" : "items are") + " on the shop right now"));
+    box.appendChild(el("p", null,
+      "The shop may have renamed, hidden or removed the listing since you saved it. Your saved list is on this device only, so nothing has been sent to FIXON."));
+    row = el("div", "state-actions");
+    row.appendChild(showAllLink("Browse all items", "shop.html"));
+    var wipe = el("button", "btn btn-sm btn-secondary", "Clear my saved list");
+    wipe.type = "button";
+    wipe.addEventListener("click", function () {
+      if (W) W.clear();
+      render();
+    });
+    row.appendChild(wipe);
+    box.appendChild(row);
+  }
+
+  function showAllLink(label, href) {
+    var a = el("a", "btn btn-sm btn-secondary", label);
+    a.href = href;
+    return a;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Render
    * ------------------------------------------------------------------ */
   function render() {
@@ -234,11 +293,14 @@
       if (empty) {
         empty.hidden = false;
         empty.textContent = "";
-        empty.appendChild(el("h3", null, "No listing matches that yet"));
-        empty.appendChild(el("p", null,
-          "FIXON keeps more than this page shows. Send the exact device and what you need, and we will confirm fit and price before you travel."));
-        empty.appendChild(whatsappButton("Ask on WhatsApp",
-          (state.model || state.brand || "my phone") + " accessory"));
+        if (state.saved) paintSavedEmpty(empty);
+        else {
+          empty.appendChild(el("h3", null, "No listing matches that yet"));
+          empty.appendChild(el("p", null,
+            "FIXON keeps more than this page shows. Send the exact device and what you need, and we will confirm fit and price before you travel."));
+          empty.appendChild(whatsappButton("Ask on WhatsApp",
+            (state.model || state.brand || "my phone") + " accessory"));
+        }
       }
     } else {
       grid.hidden = false;
@@ -288,6 +350,15 @@
       problem.addEventListener("click", function (event) {
         if (!event.target.closest("[data-retry]")) return;
         C.refresh();
+      });
+    }
+
+    /* In the saved view an un-saved item has to leave the grid at once, or
+       the page would keep showing something its own filter excludes. */
+    if (!savedViewWired) {
+      savedViewWired = true;
+      document.addEventListener("fixon:wishlist", function () {
+        if (state.saved) render();
       });
     }
   }
@@ -721,7 +792,10 @@
 
     if (fitment.length) {
       var fits = el("div", "pd-fits");
-      fits.appendChild(el("span", null, "Fits"));
+      /* "Brand", not "Fits": the column says who made the accessory, and a
+         shop word the row cannot support is exactly the kind of claim this
+         site has to avoid. */
+      fits.appendChild(el("span", null, "Brand"));
       fitment.forEach(function (value) { fits.appendChild(el("b", null, value)); });
       info.appendChild(fits);
     }
@@ -941,6 +1015,9 @@
     state.model = (params.get("model") || "").trim();
     var cat = (params.get("cat") || "").trim();
     if (cat) state.category = cat;
+    /* The header heart links here. Without js/wishlist.js on the page there
+       is no list to read, so the term is simply not applied. */
+    state.saved = params.get("saved") === "1" && !!W;
     /* One listing to open as soon as the list is readable. The id arrives
        from the shop's own WhatsApp message, and C.get() only ever matches a
        product that exists, so an edited-away link just shows the grid. */

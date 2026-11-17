@@ -100,6 +100,7 @@
     var discIn = input("discount_percent", "number", existing && existing.discount_percent,
       { min: "1", max: String(DISCOUNT_MAX), step: "1", placeholder: "e.g. 10  (empty = no offer)" });
     var catIn = input("category", "text", existing && existing.category, { maxlength: "60", placeholder: "e.g. cases", valueList: true });
+    var brandIn = input("brand", "text", existing && existing.brand, { maxlength: "60", placeholder: "e.g. Apple, Boat, Spigen (optional)" });
     var stockIn = input("stock", "number", existing && existing.stock, { min: "0", step: "1", placeholder: "e.g. 12  (empty = not tracked)" });
     var noteIn = input("stock_note", "text", existing && existing.stock_note, { maxlength: "60", placeholder: "In stock at the counter" });
 
@@ -175,6 +176,7 @@
     paintSale();
 
     pricing.appendChild(field("category", "Category", catIn, "Type the shop's slug or pick one below."));
+    pricing.appendChild(field("brand", "Brand (optional)", brandIn, "The small maker line above the name on the card. Left empty, the card shows no brand."));
     pricing.appendChild(field("stock", "Stock quantity", stockIn, "0 shows \"Out of stock\". Empty = not counted."));
     pricing.appendChild(field("stock_note", "Stock note (optional)", noteIn, "Free text beside the dot, e.g. \"3 at the counter\"."));
 
@@ -555,6 +557,7 @@
         price: priceText,
         discount_percent: discText,
         category: catIn.value,
+        brand: brandIn.value,
         image_url: img,
         stock: stockText,
         stock_note: noteIn.value,

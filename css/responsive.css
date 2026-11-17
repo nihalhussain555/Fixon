@@ -11,13 +11,27 @@
   .hero { min-height: 700px; }
 }
 
-/* Below this the header has logo + 7 links + 3 CTAs + order + theme, so the
-   order control drops to a short word. It keeps its full label on 1440/1920
-   where there is room for it. */
+/* Enough room for a fourth column without the cards getting thin. */
+@media (min-width:1500px) {
+  .product-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+}
+
+/* Below this the header has logo + 7 links + 3 CTAs + saved + order + theme, so
+   the order control drops to a short word and the search shortcut leaves the
+   header altogether: it only jumps to the box at the top of the Products page,
+   and Products is a link in the nav beside it. Both keep their full labels on
+   1440/1920 where there is room for them. */
 @media (max-width:1200px) {
   .order-btn { padding: 0 10px; }
   .order-btn .order-label { display: none; }
   .order-btn::before { content: "Order"; font-weight: 700; }
+  .header-actions > a.icon-btn { display: none; }
+  /* The header's Call/WhatsApp pair used to drop at 860px, which left the
+     861-1200 band overflowing sideways by a few pixels once the saved badge
+     joined the header. It goes with the order word instead: the phone number
+     and WhatsApp are in every page's footer, on the contact page, and in the
+     bar under the thumb on a phone. */
+  .header-cta { display: none; }
 }
 
 @media (max-width:1200px) {
@@ -45,7 +59,6 @@
 }
 
 @media (max-width:860px) {
-  .header-cta { display: none; }
   .cover-grid { grid-template-columns: repeat(2, 1fr); }
   .cta { flex-direction: column; align-items: flex-start; padding: var(--s-5); margin: var(--s-5) 4% var(--s-7); }
   .cta .hero-actions { justify-content: flex-start; width: 100%; }
@@ -117,6 +130,10 @@
   .shop-controls { top: var(--header-h); display: grid; gap: 12px; padding: 14px var(--gutter); }
   .search-box { width: 100%; }
   .product-grid, .accessory-grid{ grid-template-columns: 1fr; }
+  /* One column, full width: a square stage would push the price and the
+     buttons off the first screen, so the picture goes landscape here. */
+  .product-visual { aspect-ratio: 4 / 3; }
+  .product-photo { padding: 14px; }
   /* Banner becomes a taller, text-led panel so the copy stays readable. */
   .banner-slider { aspect-ratio: 4 / 5; border-radius: var(--radius-lg); }
   .banner::after { background: linear-gradient(to top, var(--scrim-strong) 26%, var(--scrim) 62%, transparent 100%); }
@@ -198,6 +215,13 @@
   /* Fingers still reach the tray: only the height tightens here, the short
      label was already swapped in at 1200px. */
   .order-btn { height: 38px; font-size: .78rem; }
+  /* Six controls will not sit beside the logo on a 360px screen, so what stays
+     tightens its padding rather than shrinking a target under 38px. (The
+     search shortcut already left the header at 1024px.) */
+  .header-actions { gap: 6px; }
+  .order-btn, .wish-toggle { height: 38px; padding: 0 9px; gap: 6px; }
+  .order-count, .wish-count { min-width: 20px; height: 20px; padding: 0 5px; font-size: .7rem; }
+  .wish-glyph { font-size: 1.05rem; }
 }
 
 /* Small phones: no horizontal scroll, no tiny text */
@@ -224,6 +248,18 @@
   .hero-visual { transform: scale(.86); height: 340px; }
   .phone { width: 178px; height: 356px; }
   .mobile-bar .btn { font-size: .74rem; padding: 11px 4px; letter-spacing: -.01em; }
+  /* The last 30px of the header, so a 320px screen scrolls one way only. No
+     control is dropped here - the two icon buttons and the word "Order" just
+     take up less room, and every target stays at least 36px tall. */
+  .header { padding: 0 10px; }
+  .header-actions { gap: 5px; }
+  .icon-btn { padding: 7px 9px; }
+  .menu-btn { width: 36px; }
+  .menu-btn i { left: 8px; right: 8px; }
+  .order-btn { font-size: .74rem; padding: 0 8px; }
+  .wish-toggle { padding: 0 8px; }
+  .logo { font-size: 1.2rem; }
+  .logo span { width: 25px; height: 25px; border-radius: 8px; font-size: .9rem; margin-right: 4px; }
 }
 
 /* Very short viewports (landscape phones): shrink the phone mockup */

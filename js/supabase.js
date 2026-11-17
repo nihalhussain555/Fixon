@@ -529,18 +529,22 @@
     return Math.floor(n);
   }
 
-  /* Does this project's products table have the discount column? Every read
-     here is select=*, so the first row that comes back answers it: the key
-     appears the moment the ALTER in supabase/SETUP.sql section 1 has been run.
-     null means no read has landed yet. The write below uses it to decide
-     whether a cleared discount may be sent as null - PostgREST rejects a body
-     naming a column the table does not have, whatever its value. */
-  var discountColumn = null;
+  /* Which optional products columns does this project have? Every read here is
+     select=*, so the first row that comes back answers it: a key appears the
+     moment its ALTER in supabase/SETUP.sql section 1 has been run. The writes
+     below use it to decide whether an empty value may be sent at all -
+     PostgREST rejects a body naming a column the table does not have, whatever
+     its value. A column is never forgotten once seen; no migration drops one. */
+  var knownColumns = {};
 
   function noteColumns(data) {
     var row = Array.isArray(data) ? data[0] : data;
     if (!row || typeof row !== "object") return;
-    discountColumn = Object.prototype.hasOwnProperty.call(row, "discount_percent");
+    Object.keys(row).forEach(function (key) { knownColumns[key] = true; });
+  }
+
+  function hasColumn(key) {
+    return knownColumns[key] === true;
   }
 
   /* An empty or zero discount is "no offer": the column then stays null rather
@@ -563,6 +567,7 @@
     var stock = src.stock === "" || src.stock == null ? null : toStock(src.stock, true);
     if (stock !== null && isNaN(stock)) throw new Error("The stock quantity must be a whole number, or left empty for 'not tracked'.");
     var discount = toDiscount(src.discount_percent);
+    var brand = cleanText(src.brand, 60);
     var payload = {
       name: name,
       description: cleanText(src.description, 800),
@@ -578,9 +583,20 @@
        read has proved the column exists, so a shop that has not migrated yet
        still saves ordinary products and still clears an offer - both of which
        would otherwise be rejected as an unknown column. */
-    if (discount !== null || discountColumn === true) payload.discount_percent = discount;
+    if (discount !== null || hasColumn("discount_percent")) payload.discount_percent = discount;
+    /* The same rule for the maker line: a typed brand always goes, an empty
+       one only once the column is known to exist. */
+    if (brand || hasColumn("brand")) payload.brand = brand;
     return payload;
   }
+
+  /* PostgREST says "column X does not exist" in the body of the error. That is
+     the one failure the owner can fix themselves in a minute, so name the
+     statement instead of repeating the database's wording. */
+  var MISSING_COLUMN = {
+    discount_percent: "discount",
+    brand: "brand"
+  };
 
   function postgrestWrite(res, what) {
     if (res.status === 401 || res.status === 403) { clearSession(); var e = new Error("Not authorised - sign in again."); e.code = "signed_out"; throw e; }
@@ -588,12 +604,17 @@
       var msg = what;
       var detail = String((res.data && res.data.message) || "");
       if (res.data && /check constraint|violates/i.test(detail)) msg = what + ": a value was outside the allowed range.";
-      else if (/discount_percent/i.test(detail) && /could not find|does not exist|not exist/i.test(detail)) {
-        /* The one failure the owner can fix themselves in one minute, so name
-           the statement rather than repeating PostgREST's wording. */
-        msg = "This project's products table has no discount column yet. Run the single ALTER statement in section 1 of supabase/SETUP.sql in the Supabase SQL editor, then save again.";
+      else {
+        var missing = Object.keys(MISSING_COLUMN).filter(function (key) {
+          return new RegExp(key + "\\b", "i").test(detail) && /could not find|does not exist|not exist/i.test(detail);
+        })[0];
+        if (missing) {
+          msg = "This project's products table has no " + MISSING_COLUMN[missing] +
+            " column yet. Run the single ALTER statement for \"" + missing + "\" in section 1 of supabase/SETUP.sql " +
+            "in the Supabase SQL editor, then save again.";
+        }
+        else if (res.data && res.data.message) msg = what + ": " + res.data.message;
       }
-      else if (res.data && res.data.message) msg = what + ": " + res.data.message;
       var err = new Error(msg);
       err.status = res.status;
       throw err;

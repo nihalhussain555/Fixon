@@ -243,7 +243,9 @@
       /* null means "the shop does not track this item"; 0 is a real sold
          out, which is what order.js and the details panel check. */
       stockCount: stockCountOf(row),
-      brand: "",
+      /* Optional column: no brand column, or an empty one, simply means the
+         card shows no brand line. The site never guesses a maker. */
+      brand: clip(row.brand, 60),
       model: "",
       featured: !!row.featured,
       link: null,
