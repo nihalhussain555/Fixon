@@ -340,6 +340,18 @@ function supabaseStockCount(value) {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
 }
 
+/* The same precedence js/catalog.js uses: the counted number leads and a note
+   only words it. A note of pure digits is a quantity typed into the wording
+   box, and letting it stand in for the count is how editing Stock came to look
+   like it changed nothing. */
+function supabaseStockLabel(note, count) {
+  const text = String(note || "").replace(/\s+/g, " ").trim().slice(0, 60);
+  if (count === null) return text;
+  if (count === 0) return "Out of stock";
+  if (!text || /^\d+$/.test(text)) return "In stock (" + count + ")";
+  return text + " (" + count + ")";
+}
+
 async function loadSupabaseCatalog() {
   const res = await fetch(CONFIG.supabaseUrl + "/rest/v1/products?select=*&is_active=eq.true&order=created_at.desc", {
     headers: {
@@ -370,7 +382,7 @@ async function loadSupabaseCatalog() {
       category,
       image,
       fitment,
-      stock: note || (count === null ? "" : count > 0 ? "In stock (" + count + ")" : "Out of stock"),
+      stock: supabaseStockLabel(note, count),
       stockCount: count,
       description: String(row.description || "").replace(/\s+/g, " ").trim()
     });

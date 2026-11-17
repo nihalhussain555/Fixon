@@ -187,12 +187,19 @@
    * visitor's device keep matching across edits; the database uuid rides
    * along as dbId for nothing but the dashboard's own addresses.
    * ------------------------------------------------------------------ */
+  /* The card's availability line. The counted Stock column is the number the
+     dashboard edits, the filters read and the sold-out check obeys, so it
+     always leads the label: a note may add wording beside it ("At the counter
+     (3)") but can never stand in for it. A note that is only digits is a
+     quantity typed into the wrong box, and is set aside for that reason -
+     otherwise editing Stock would look like it did nothing. */
   function supabaseStock(row) {
-    if (row.stock_note) return clip(row.stock_note, 60);
-    if (row.stock === null || row.stock === undefined || row.stock === "") return "";
-    var n = Number(row.stock);
-    if (!isFinite(n) || n < 0) return "";
-    return n > 0 ? "In stock (" + n + ")" : "Out of stock";
+    var note = clip(row.stock_note, 60);
+    var n = stockCountOf(row);
+    if (n === null) return note;
+    if (n === 0) return "Out of stock";
+    if (!note || /^\d+$/.test(note.trim())) return "In stock (" + n + ")";
+    return note + " (" + n + ")";
   }
 
   function stockCountOf(row) {
@@ -386,9 +393,11 @@
    * Auto refresh. Never stacks: one timer, one in-flight request, and a
    * hidden tab is skipped then caught up when it is seen again.
    * ------------------------------------------------------------------ */
-  function staleEnough() {
-    var minutes = Number(CFG.catalog.refreshMinutes) || 30;
-    return !state.fetchedAt || Date.now() - state.fetchedAt > minutes * 60000;
+  /* Coming back to a tab is the moment an owner expects to see the edit they
+     just saved in the dashboard, so that catch-up reads again once the list is
+     over a minute old - the long timer below is for a page left open instead. */
+  function justFetched() {
+    return !!state.fetchedAt && Date.now() - state.fetchedAt < 60000;
   }
 
   function startAutoRefresh() {
@@ -400,7 +409,7 @@
     }, Math.max(1, minutes) * 60000);
 
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden && staleEnough()) load();
+      if (!document.hidden && !justFetched()) load();
     });
   }
 

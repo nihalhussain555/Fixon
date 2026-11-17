@@ -177,8 +177,25 @@
 
     pricing.appendChild(field("category", "Category", catIn, "Type the shop's slug or pick one below."));
     pricing.appendChild(field("brand", "Brand (optional)", brandIn, "The small maker line above the name on the card. Left empty, the card shows no brand."));
-    pricing.appendChild(field("stock", "Stock quantity", stockIn, "0 shows \"Out of stock\". Empty = not counted."));
-    pricing.appendChild(field("stock_note", "Stock note (optional)", noteIn, "Free text beside the dot, e.g. \"3 at the counter\"."));
+    var stockField = field("stock", "Stock quantity", stockIn, "The number the card shows. 0 = \"Out of stock\", empty = not counted.");
+    var noteField = field("stock_note", "Stock note (optional)", noteIn, "Wording beside the number, e.g. \"at the counter\". Leave empty to show \"In stock (12)\".");
+    pricing.appendChild(stockField);
+    pricing.appendChild(noteField);
+
+    /* A quantity typed into the wording box used to stand in for the counted
+       number on the card, so editing Stock looked like it changed nothing. The
+       card ignores such a note now; the form says so while it is being typed. */
+    var noteHint = noteField.querySelector(".hint");
+    var noteHintText = noteHint.textContent;
+    function paintNoteHint() {
+      var onlyNumber = /^\d+$/.test(noteIn.value.trim());
+      noteHint.classList.toggle("warn", onlyNumber);
+      noteHint.textContent = onlyNumber
+        ? "\"" + noteIn.value.trim() + "\" is a quantity. Put it in Stock quantity above - the card shows that number and sets this note aside."
+        : noteHintText;
+    }
+    noteIn.addEventListener("input", paintNoteHint);
+    paintNoteHint();
 
     var picks = el("div", "field full");
     picks.appendChild(el("span", "hint", "Pick a category the shop already knows:"));

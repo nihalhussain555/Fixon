@@ -33,8 +33,9 @@ it.
   The contact form prepares text locally and opens WhatsApp or
   copy-to-clipboard; it does not submit anything, and it says so on screen.
 - **Nothing is real-time.** The product list is re-read every
-  `refreshMinutes` (30), so the pages show when the data was read rather than
-  claiming it is live.
+  `refreshMinutes` (30) — or a minute after the tab is switched back to, which
+  is when an owner expects to see a save they just made — so the pages show when
+  the data was read rather than claiming it is live.
 
 ## Files
 
@@ -95,8 +96,8 @@ the next read, with no deploy.
 | `category` | matched against `productCategories` in `js/config.js`; unknown text is kept and shown as written |
 | `brand` | the maker line above the name on a card; empty shows no brand, the site never guesses one |
 | `image_url` | see below |
-| `stock` | an integer; `0` marks the item sold out and blocks the order button, empty means "not tracked" |
-| `stock_note` | free text in place of the count, e.g. "At the counter" |
+| `stock` | the number a card shows; `0` marks the item sold out and blocks the order button, empty means "not tracked" |
+| `stock_note` | wording beside that number, e.g. "At the counter" — it never replaces it, and a note of pure digits is set aside as a quantity in the wrong box |
 | `featured` | puts the item first in the home and category strips |
 | `is_active` | `false` hides the row from the site entirely (the dashboard still lists it) |
 
@@ -142,10 +143,10 @@ a decoration over it: the photo (or, when the row has none, that product's own
 category illustration, labelled as one), the brand line when there is a brand,
 the name, the price the customer is quoted with the list price struck through
 and a `25% OFF` badge when there is an offer, the category tag, and an
-availability label. The label is read off `stock`: a counted `0` says
-"Out of stock" and disables the order button, a count above 0 says what the
-shop's own `stock_note` says, and a blank count admits "Availability on request"
-rather than inventing an "In stock".
+availability label. The label always leads with the counted `stock`: a `0` says
+"Out of stock" and disables the order button, a count above 0 says "In stock
+(12)" or the shop's `stock_note` wording beside that number, and a blank count
+admits "Availability on request" rather than inventing an "In stock".
 
 Three controls sit on the photo area — the whole image opens the Details dialog
 (quick view), the heart saves the item, and "Add to order" still adds it to the
@@ -269,7 +270,7 @@ There is no activity log table in this schema and the schema is not being
 widened for a panel, so "Latest changes" is honestly derived from each row's
 own `created_at`/`updated_at` and labelled as that.
 
-**Manage products** is search across name, description and category, a category
+**Manage products** is search across name, brand, description and category, a category
 filter, a status filter
 (any / active only / hidden only / out of stock / in stock), four sorts
 (newest, oldest, price low→high, price high→low) and a pager that appears for
